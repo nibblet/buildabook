@@ -13,6 +13,12 @@ export async function saveSceneContent(
 ) {
   const supabase = await supabaseServer();
   const words = wordcount || countWords(html);
+  const { data: previous } = await supabase
+    .from("scenes")
+    .select("content, wordcount")
+    .eq("id", sceneId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("scenes")
     .update({
@@ -22,6 +28,17 @@ export async function saveSceneContent(
     })
     .eq("id", sceneId);
   if (error) throw error;
+
+  const previousContent = previous?.content ?? "";
+  const nextContent = html ?? "";
+  if (previousContent.trim() && previousContent !== nextContent) {
+    await supabase.from("scene_revisions").insert({
+      scene_id: sceneId,
+      content: previousContent,
+      wordcount: previous?.wordcount ?? countWords(previousContent),
+      source: "autosave",
+    });
+  }
 
   // Roll chapter wordcount up.
   const { data: scene } = await supabase
@@ -108,6 +125,86 @@ export async function moveSceneToChapter(sceneId: string, targetChapterId: strin
   revalidatePath(`/chapters/${targetChapterId}`);
   revalidatePath(`/scenes/${sceneId}`);
   revalidatePath("/");
+}
+
+export async function updateSceneCharacterArc(
+  sceneId: string,
+  characterId: string,
+  fields: {
+    reader_knowledge?: string | null;
+    character_knowledge?: string | null;
+    arc_note?: string | null;
+  },
+) {
+  const supabase = await supabaseServer();
+  const payload = {
+    scene_id: sceneId,
+    character_id: characterId,
+    reader_knowledge: fields.reader_knowledge ?? null,
+    character_knowledge: fields.character_knowledge ?? null,
+    arc_note: fields.arc_note ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  const hasAnyValue = [
+    payload.reader_knowledge,
+    payload.character_knowledge,
+    payload.arc_note,
+  ].some((v) => Boolean(v && v.trim().length > 0));
+
+  if (!hasAnyValue) {
+    const { error } = await supabase
+      .from("scene_character_arcs")
+      .delete()
+      .eq("scene_id", sceneId)
+      .eq("character_id", characterId);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from("scene_character_arcs")
+      .upsert(payload, { onConflict: "scene_id,character_id" });
+    if (error) throw error;
+  }
+
+  revalidatePath(`/scenes/${sceneId}`);
+  revalidatePath("/arc-tracker");
+}
+
+export async function restoreSceneRevision(sceneId: string, revisionId: string) {
+  const supabase = await supabaseServer();
+  const { data: revision, error: revisionError } = await supabase
+    .from("scene_revisions")
+    .select("content, wordcount")
+    .eq("id", revisionId)
+    .eq("scene_id", sceneId)
+    .maybeSingle();
+  if (revisionError) throw revisionError;
+  if (!revision) throw new Error("Revision not found.");
+
+  const { data: currentScene } = await supabase
+    .from("scenes")
+    .select("content, wordcount")
+    .eq("id", sceneId)
+    .maybeSingle();
+  if (!currentScene) throw new Error("Scene not found.");
+
+  await supabase.from("scene_revisions").insert({
+    scene_id: sceneId,
+    content: currentScene.content ?? "",
+    wordcount: currentScene.wordcount ?? countWords(currentScene.content ?? ""),
+    source: "manual_restore",
+  });
+
+  const { error: updateError } = await supabase
+    .from("scenes")
+    .update({
+      content: revision.content,
+      wordcount: revision.wordcount || countWords(revision.content),
+      status: "drafting",
+    })
+    .eq("id", sceneId);
+  if (updateError) throw updateError;
+
+  revalidatePath(`/scenes/${sceneId}`);
 }
 
 export async function updateSceneFields(

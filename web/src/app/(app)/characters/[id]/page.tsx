@@ -40,6 +40,11 @@ export default async function CharacterDetailPage({
         <h1 className="font-serif text-2xl font-semibold tracking-tight">
           {(data as Character).name}
         </h1>
+        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+          Details you enter here roll into the AI&apos;s universal story context with
+          your voice and project settings — fuller sheets reduce inconsistency when you
+          ask for rewrites or continuations.
+        </p>
       </header>
 
       <CharacterForm character={data as Character} />

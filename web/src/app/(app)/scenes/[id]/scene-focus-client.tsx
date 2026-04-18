@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Loader2, ChevronLeft, Maximize2, Minimize2, Sparkles } from "lucide-react";
+import { Check, Loader2, ChevronLeft, Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useFocusMode } from "@/hooks/use-focus-mode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +12,23 @@ import { Label } from "@/components/ui/label";
 import { Chip } from "@/components/ui/chip";
 import { ProseEditor, type ProseEditorHandle } from "@/components/prose-editor";
 import { TeamPanel } from "@/components/team-panel";
-import { saveSceneContent, updateSceneFields } from "../actions";
+import {
+  restoreSceneRevision,
+  saveSceneContent,
+  updateSceneCharacterArc,
+  updateSceneFields,
+} from "../actions";
 import { cn, formatNumber } from "@/lib/utils";
+import { stripHtml } from "@/lib/html";
+import { idsMatchingMentionsInText } from "@/lib/mentions/character-mention-backfill";
 import type {
   Beat,
   Chapter,
   Character,
   Project,
   Scene,
+  SceneCharacterArc,
+  SceneRevision,
 } from "@/lib/supabase/types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -29,6 +39,8 @@ export function SceneFocusClient({
   chapter,
   characters,
   beats,
+  arcs,
+  revisions,
   BackLink,
 }: {
   project: Project;
@@ -36,9 +48,12 @@ export function SceneFocusClient({
   chapter: Pick<Chapter, "id" | "title">;
   characters: Character[];
   beats: Beat[];
+  arcs: SceneCharacterArc[];
+  revisions: SceneRevision[];
   backHref?: string;
   BackLink: React.ReactNode;
 }) {
+  const router = useRouter();
   const editorRef = useRef<ProseEditorHandle>(null);
   const { focusMode, toggle: toggleFocus } = useFocusMode();
 
@@ -50,12 +65,40 @@ export function SceneFocusClient({
   const [contentHtml, setContentHtml] = useState(scene.content ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [beatIds, setBeatIds] = useState<string[]>(scene.beat_ids ?? []);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [selectedRevisionId, setSelectedRevisionId] = useState(revisions[0]?.id ?? "");
+  const [arcDrafts, setArcDrafts] = useState<Record<string, {
+    reader_knowledge: string;
+    character_knowledge: string;
+    arc_note: string;
+  }>>(() =>
+    arcs.reduce<Record<string, { reader_knowledge: string; character_knowledge: string; arc_note: string }>>(
+      (acc, arc) => {
+        acc[arc.character_id] = {
+          reader_knowledge: arc.reader_knowledge ?? "",
+          character_knowledge: arc.character_knowledge ?? "",
+          arc_note: arc.arc_note ?? "",
+        };
+        return acc;
+      },
+      {},
+    ),
+  );
   const [, startTransition] = useTransition();
   const dirtyRef = useRef(false);
   const metaDirtyRef = useRef(false);
 
   const povCharacter = characters.find((c) => c.id === scene.pov_character_id);
   const sceneBeats = beats.filter((b) => beatIds.includes(b.id));
+  const mentionedCharacterIds = idsMatchingMentionsInText(
+    stripHtml(contentHtml ?? "").toLowerCase(),
+    characters,
+  );
+  /** Full project cast — arc rows are optional notes per scene (not seeded). */
+  const trackedCharacters = [...characters].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const selectedRevision = revisions.find((r) => r.id === selectedRevisionId) ?? null;
 
   function toggleBeat(beatId: string) {
     setBeatIds((prev) =>
@@ -118,6 +161,52 @@ export function SceneFocusClient({
   function markDone() {
     startTransition(async () => {
       await updateSceneFields(scene.id, { status: "done" });
+    });
+  }
+
+  function insertCharacterMention() {
+    const q = mentionQuery.trim().toLowerCase();
+    if (!q) return;
+    const match = characters.find((c) => c.name.toLowerCase() === q)
+      ?? characters.find((c) => c.name.toLowerCase().startsWith(q));
+    if (!match) return;
+    editorRef.current?.insertAtCursor(`@${match.name} `);
+    setMentionQuery("");
+  }
+
+  function updateArcDraft(
+    characterId: string,
+    field: "reader_knowledge" | "character_knowledge" | "arc_note",
+    value: string,
+  ) {
+    setArcDrafts((prev) => ({
+      ...prev,
+      [characterId]: {
+        reader_knowledge: prev[characterId]?.reader_knowledge ?? "",
+        character_knowledge: prev[characterId]?.character_knowledge ?? "",
+        arc_note: prev[characterId]?.arc_note ?? "",
+        [field]: value,
+      },
+    }));
+  }
+
+  function persistArc(characterId: string) {
+    const draft = arcDrafts[characterId];
+    if (!draft) return;
+    startTransition(async () => {
+      await updateSceneCharacterArc(scene.id, characterId, {
+        reader_knowledge: draft.reader_knowledge || null,
+        character_knowledge: draft.character_knowledge || null,
+        arc_note: draft.arc_note || null,
+      });
+    });
+  }
+
+  function onRestoreRevision() {
+    if (!selectedRevisionId) return;
+    startTransition(async () => {
+      await restoreSceneRevision(scene.id, selectedRevisionId);
+      router.refresh();
     });
   }
 
@@ -268,6 +357,147 @@ export function SceneFocusClient({
             autofocus
             onChange={onProseChange}
           />
+
+          <details className="mt-6 rounded-md border p-3 text-sm">
+            <summary className="label-eyebrow cursor-pointer select-none">
+              Character mentions — insert and track
+            </summary>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Use <span className="font-mono">@Name</span> in prose to keep cast continuity searchable.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Input
+                list="character-mentions"
+                value={mentionQuery}
+                onChange={(e) => setMentionQuery(e.target.value)}
+                placeholder="Type a character name…"
+                className="max-w-xs"
+              />
+              <datalist id="character-mentions">
+                {characters.map((c) => (
+                  <option key={c.id} value={c.name} />
+                ))}
+              </datalist>
+              <Button type="button" size="sm" variant="outline" onClick={insertCharacterMention}>
+                Insert @character
+              </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {mentionedCharacterIds.length === 0 ? (
+                <span className="text-xs text-muted-foreground">
+                  No explicit @mentions in this scene yet.
+                </span>
+              ) : (
+                mentionedCharacterIds.map((id) => {
+                  const c = characters.find((x) => x.id === id);
+                  if (!c) return null;
+                  return (
+                    <Chip key={c.id} active>
+                      @{c.name}
+                    </Chip>
+                  );
+                })
+              )}
+            </div>
+          </details>
+
+          <details className="mt-6 rounded-md border p-3 text-sm">
+            <summary className="label-eyebrow cursor-pointer select-none">
+              Arc tracker — reader vs character knowledge
+            </summary>
+            {trackedCharacters.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Add characters under <strong className="text-foreground">Characters</strong> to
+                track arc state here. Notes save when you leave a field (blur).
+              </p>
+            ) : (
+              <div className="mt-3 space-y-4">
+                {trackedCharacters.map((c) => {
+                  const draft = arcDrafts[c.id] ?? {
+                    reader_knowledge: "",
+                    character_knowledge: "",
+                    arc_note: "",
+                  };
+                  return (
+                    <div key={c.id} className="rounded-md border p-3">
+                      <p className="text-sm font-medium">{c.name}</p>
+                      <div className="mt-2 grid gap-2">
+                        <SceneField
+                          label="What the reader knows"
+                          hint="Truth currently visible to the reader."
+                          value={draft.reader_knowledge}
+                          onChange={(v) => updateArcDraft(c.id, "reader_knowledge", v)}
+                          onBlur={() => persistArc(c.id)}
+                        />
+                        <SceneField
+                          label="What this character knows"
+                          hint="Internal knowledge at this point in story time."
+                          value={draft.character_knowledge}
+                          onChange={(v) => updateArcDraft(c.id, "character_knowledge", v)}
+                          onBlur={() => persistArc(c.id)}
+                        />
+                        <SceneField
+                          label="Arc note"
+                          hint="Reveal, shift, or contradiction to revisit later."
+                          value={draft.arc_note}
+                          onChange={(v) => updateArcDraft(c.id, "arc_note", v)}
+                          onBlur={() => persistArc(c.id)}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </details>
+
+          <details className="mt-6 rounded-md border p-3 text-sm">
+            <summary className="label-eyebrow cursor-pointer select-none">
+              Revision history
+            </summary>
+            {revisions.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Revisions appear after scene content changes are autosaved.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                    value={selectedRevisionId}
+                    onChange={(e) => setSelectedRevisionId(e.target.value)}
+                  >
+                    {revisions.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {new Date(r.created_at).toLocaleString()} · {formatNumber(r.wordcount)} words
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    onClick={onRestoreRevision}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Restore revision
+                  </Button>
+                </div>
+                {selectedRevision ? (
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Diff summary:{" "}
+                      {diffSummary(stripHtml(contentHtml), stripHtml(selectedRevision.content))}
+                    </p>
+                    <p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                      {stripHtml(selectedRevision.content).slice(0, 1800) || "(No text in selected revision)"}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </details>
         </div>
       </div>
 
@@ -344,11 +574,13 @@ function SceneField({
   hint,
   value,
   onChange,
+  onBlur,
 }: {
   label: string;
   hint: string;
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
 }) {
   return (
     <div className="space-y-1">
@@ -360,6 +592,7 @@ function SceneField({
         rows={2}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
       />
     </div>
   );
@@ -383,4 +616,13 @@ function SaveBadge({ state }: { state: SaveState }) {
       <span className="text-xs text-destructive">Error saving</span>
     );
   return null;
+}
+
+function diffSummary(currentText: string, selectedRevisionText: string): string {
+  const currentWords = currentText.trim().split(/\s+/).filter(Boolean).length;
+  const previousWords = selectedRevisionText.trim().split(/\s+/).filter(Boolean).length;
+  const delta = currentWords - previousWords;
+  if (delta === 0) return "wordcount unchanged from current scene.";
+  if (delta > 0) return `${formatNumber(delta)} words added since this revision.`;
+  return `${formatNumber(Math.abs(delta))} words removed since this revision.`;
 }

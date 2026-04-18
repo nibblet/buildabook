@@ -91,6 +91,24 @@ export type Scene = {
   updated_at: string;
 };
 
+export type SceneCharacterArc = {
+  scene_id: string;
+  character_id: string;
+  reader_knowledge: string | null;
+  character_knowledge: string | null;
+  arc_note: string | null;
+  updated_at: string;
+};
+
+export type SceneRevision = {
+  id: string;
+  scene_id: string;
+  content: string;
+  wordcount: number;
+  source: "autosave" | "manual_restore";
+  created_at: string;
+};
+
 export type WorldElement = {
   id: string;
   project_id: string;

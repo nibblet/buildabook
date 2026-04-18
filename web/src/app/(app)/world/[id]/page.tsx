@@ -42,6 +42,11 @@ export default async function WorldDetailPage({
         <h1 className="font-serif text-2xl font-semibold tracking-tight">
           {w.name || "Untitled"}
         </h1>
+        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+          Category, name, and description are passed to Partner and scene assist as a
+          canon line so generations respect this fact. Use a name that matches how it
+          appears on the page when you care about mention counts.
+        </p>
       </header>
 
       <WorldElementForm element={w} />

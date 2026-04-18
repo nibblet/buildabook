@@ -32,6 +32,12 @@ export default async function WorldPage() {
           <h1 className="font-serif text-3xl font-semibold tracking-tight">
             World
           </h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Each element is summarized into the AI story context — rules of magic,
+            places, factions, lore — so help requests do not contradict your bible.
+            When prose uses an element&apos;s name, mentions roll up per chapter for
+            tracking (same idea as character name counts).
+          </p>
         </div>
         <form action={createWorldElementDraft}>
           <Button type="submit" size="sm" className="gap-1">

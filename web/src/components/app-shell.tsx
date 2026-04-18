@@ -13,6 +13,7 @@ import {
   Globe,
   Heart,
   BookMarked,
+  GitBranch,
   Settings,
   MessageSquare,
 } from "lucide-react";
@@ -151,6 +152,7 @@ const STUDIO_LINKS = [
   { href: "/world", label: "World", icon: Globe },
   { href: "/relationships", label: "Relationships", icon: Heart },
   { href: "/spine", label: "Story spine", icon: BookMarked },
+  { href: "/arc-tracker", label: "Arc tracker", icon: GitBranch },
   { href: "/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/project/settings", label: "Settings", icon: Settings },
 ] as const;

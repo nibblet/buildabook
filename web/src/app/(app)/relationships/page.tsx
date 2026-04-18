@@ -56,6 +56,12 @@ export default async function RelationshipsPage() {
           <h1 className="font-serif text-3xl font-semibold tracking-tight">
             Relationships
           </h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Pair characters to power the dashboard chemistry arc and scene-based
+            relationship-beat proposals. &quot;Where you are&quot; and arc notes are
+            yours for planning now; wiring them into Partner alongside characters is on
+            the roadmap.
+          </p>
         </div>
         <Button size="sm" className="gap-1" asChild>
           <Link href="/relationships/new">

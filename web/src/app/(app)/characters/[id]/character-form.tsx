@@ -22,6 +22,7 @@ export function CharacterForm({ character }: { character: Character }) {
     start(async () => {
       await updateCharacter(character.id, {
         name: String(fd.get("name") || "").trim() || "Untitled",
+        aliases: commaList(fd.get("aliases")),
         role: emptyToNull(fd.get("role")),
         species: emptyToNull(fd.get("species")),
         archetype: emptyToNull(fd.get("archetype")),
@@ -58,6 +59,12 @@ export function CharacterForm({ character }: { character: Character }) {
             label="Name"
             required
             defaultValue={character.name}
+          />
+          <Field
+            name="aliases"
+            label="Aliases for @mentions"
+            hint="Comma-separated nicknames or spellings (e.g. Zoe, Zoë)."
+            defaultValue={(character.aliases ?? []).join(", ")}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field name="role" label="Role" defaultValue={character.role ?? ""} />
@@ -122,20 +129,34 @@ function emptyToNull(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 
+function commaList(v: FormDataEntryValue | null): string[] {
+  return String(v ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function Field({
   name,
   label,
+  hint,
   defaultValue,
   required,
 }: {
   name: string;
   label: string;
+  hint?: string;
   defaultValue: string;
   required?: boolean;
 }) {
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">
+        {label}
+        {hint ? (
+          <span className="ml-2 font-normal text-muted-foreground/90">{hint}</span>
+        ) : null}
+      </Label>
       <Input name={name} defaultValue={defaultValue} required={required} />
     </div>
   );

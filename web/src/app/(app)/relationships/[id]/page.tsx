@@ -43,6 +43,11 @@ export default async function RelationshipDetailPage({
         <h1 className="font-serif text-2xl font-semibold tracking-tight">
           Edit connection
         </h1>
+        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+          This pairing drives chemistry visualization and suggested relationship beats
+          from drafts. Notes here are story-building memory for you first; exposing them
+          to Partner is tracked on the roadmap.
+        </p>
       </header>
 
       <RelationshipForm
