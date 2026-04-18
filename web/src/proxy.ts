@@ -38,13 +38,14 @@ export async function proxy(req: NextRequest) {
       getAll() {
         return req.cookies.getAll();
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) =>
-          req.cookies.set(name, value),
-        );
-        cookiesToSet.forEach(({ name, value, options }) =>
-          res.cookies.set(name, value, options),
-        );
+      setAll(cookiesToSet, headers) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          res.cookies.set(name, value, options ?? {});
+        });
+        // Prevent CDN caching of responses that set auth cookies (Supabase SSR contract).
+        Object.entries(headers ?? {}).forEach(([key, value]) => {
+          res.headers.set(key, value);
+        });
       },
     },
   });
@@ -90,7 +91,8 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match everything except Next.js internals and static assets.
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    // Skip proxy for Next internals, favicon, and typical static assets (icons, images).
+    // Otherwise unauthenticated requests get redirected and `/icon.svg` etc. break.
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)",
   ],
 };
