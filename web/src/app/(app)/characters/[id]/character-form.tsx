@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
@@ -10,6 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Character } from "@/lib/supabase/types";
+import {
+  CHARACTER_ROLE_PRESETS,
+  CHARACTER_SPECIES_PRESETS,
+  PRESET_CUSTOM_SENTINEL,
+  type PresetOption,
+} from "@/lib/characters/presets";
 import { deleteCharacter, updateCharacter } from "../actions";
 
 export function CharacterForm({ character }: { character: Character }) {
@@ -23,8 +29,8 @@ export function CharacterForm({ character }: { character: Character }) {
       await updateCharacter(character.id, {
         name: String(fd.get("name") || "").trim() || "Untitled",
         aliases: commaList(fd.get("aliases")),
-        role: emptyToNull(fd.get("role")),
-        species: emptyToNull(fd.get("species")),
+        role: mergePresetOrCustom(fd, "role_preset", "role_custom"),
+        species: mergePresetOrCustom(fd, "species_preset", "species_custom"),
         archetype: emptyToNull(fd.get("archetype")),
         appearance: emptyToNull(fd.get("appearance")),
         backstory: emptyToNull(fd.get("backstory")),
@@ -67,11 +73,21 @@ export function CharacterForm({ character }: { character: Character }) {
             defaultValue={(character.aliases ?? []).join(", ")}
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field name="role" label="Role" defaultValue={character.role ?? ""} />
-            <Field
-              name="species"
+            <PresetOrCustomField
+              key={`role-${character.role ?? ""}`}
+              label="Role"
+              presets={CHARACTER_ROLE_PRESETS}
+              stored={character.role}
+              selectName="role_preset"
+              customName="role_custom"
+            />
+            <PresetOrCustomField
+              key={`species-${character.species ?? ""}`}
               label="Species"
-              defaultValue={character.species ?? ""}
+              presets={CHARACTER_SPECIES_PRESETS}
+              stored={character.species}
+              selectName="species_preset"
+              customName="species_custom"
             />
           </div>
           <Field
@@ -124,6 +140,19 @@ export function CharacterForm({ character }: { character: Character }) {
   );
 }
 
+function mergePresetOrCustom(
+  fd: FormData,
+  presetKey: string,
+  customKey: string,
+): string | null {
+  const preset = String(fd.get(presetKey) ?? "").trim();
+  const custom = String(fd.get(customKey) ?? "").trim();
+  if (preset === PRESET_CUSTOM_SENTINEL) {
+    return custom.length ? custom : null;
+  }
+  return preset.length ? preset : null;
+}
+
 function emptyToNull(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? "").trim();
   return s.length ? s : null;
@@ -134,6 +163,82 @@ function commaList(v: FormDataEntryValue | null): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function PresetOrCustomField({
+  label,
+  presets,
+  stored,
+  selectName,
+  customName,
+}: {
+  label: string;
+  presets: readonly PresetOption[];
+  stored: string | null;
+  selectName: string;
+  customName: string;
+}) {
+  const presetValues = useMemo(
+    () => new Set(presets.map((p) => p.value)),
+    [presets],
+  );
+
+  const initialSelect = useMemo(() => {
+    if (!stored) return "";
+    if (presetValues.has(stored)) return stored;
+    return PRESET_CUSTOM_SENTINEL;
+  }, [stored, presetValues]);
+
+  const initialCustom = useMemo(() => {
+    if (!stored || presetValues.has(stored)) return "";
+    return stored;
+  }, [stored, presetValues]);
+
+  const [selectValue, setSelectValue] = useState(initialSelect);
+  const [customText, setCustomText] = useState(initialCustom);
+
+  const showCustom = selectValue === PRESET_CUSTOM_SENTINEL;
+
+  const selectClassName =
+    "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <select
+        name={selectName}
+        className={selectClassName}
+        value={selectValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          setSelectValue(v);
+          if (v !== PRESET_CUSTOM_SENTINEL) {
+            setCustomText("");
+          }
+        }}
+      >
+        <option value="">Not set</option>
+        {presets.map((p) => (
+          <option key={p.value} value={p.value}>
+            {p.label}
+          </option>
+        ))}
+        <option value={PRESET_CUSTOM_SENTINEL}>Other / custom</option>
+      </select>
+      {showCustom ? (
+        <Input
+          name={customName}
+          className="mt-2"
+          placeholder="Describe (stored on save)"
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value)}
+          autoComplete="off"
+        />
+      ) : (
+        <input type="hidden" name={customName} value="" />
+      )}
+    </div>
+  );
 }
 
 function Field({

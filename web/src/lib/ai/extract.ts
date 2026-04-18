@@ -1,6 +1,10 @@
 import { jsonrepair } from "jsonrepair";
 import { z } from "zod";
 import { askClaude, resolveModelKey } from "@/lib/ai/claude";
+import {
+  promptRoleAlternatives,
+  promptSpeciesAlternatives,
+} from "@/lib/characters/presets";
 
 // Schema for one-shot draft extraction (import-first onboarding, v2 §12).
 export const ExtractedCharacter = z.object({
@@ -127,8 +131,8 @@ Read them and return a single JSON object with this shape:
   "characters": [
     {
       "name": "string",
-      "role": "protagonist | love_interest | antagonist | supporting | animal_companion | backstory",
-      "species": "human | shifter | vampire | witch | fae | psychic | unknown | ...",
+      "role": "${promptRoleAlternatives()}",
+      "species": "${promptSpeciesAlternatives()}",
       "archetype": "optional short phrase",
       "appearance": "optional one-line",
       "voice_notes": "optional",

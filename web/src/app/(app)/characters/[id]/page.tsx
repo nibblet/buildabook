@@ -47,7 +47,7 @@ export default async function CharacterDetailPage({
         </p>
       </header>
 
-      <CharacterForm character={data as Character} />
+      <CharacterForm key={id} character={data as Character} />
     </div>
   );
 }

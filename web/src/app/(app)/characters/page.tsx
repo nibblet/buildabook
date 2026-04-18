@@ -8,6 +8,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { backfillCharacterMentions, createCharacterDraft } from "./actions";
 import type { Character } from "@/lib/supabase/types";
+import {
+  formatRoleLabel,
+  formatSpeciesLabel,
+} from "@/lib/characters/presets";
 
 export default async function CharactersPage() {
   const project = await getOrCreateProject();
@@ -76,10 +80,10 @@ export default async function CharactersPage() {
                       <span>{c.name}</span>
                       <div className="flex flex-wrap gap-1">
                         {c.role && (
-                          <Badge variant="secondary">{c.role}</Badge>
+                          <Badge variant="secondary">{formatRoleLabel(c.role)}</Badge>
                         )}
                         {c.species && (
-                          <Badge variant="muted">{c.species}</Badge>
+                          <Badge variant="muted">{formatSpeciesLabel(c.species)}</Badge>
                         )}
                       </div>
                     </CardTitle>
