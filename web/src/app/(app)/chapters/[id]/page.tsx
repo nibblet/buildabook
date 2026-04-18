@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -79,12 +80,22 @@ export default async function ChapterPage({
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-8">
       <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Chapter
-        </p>
-        <h1 className="font-serif text-3xl font-semibold tracking-tight">
-          {chapter.title || `Chapter ${(chapter.order_index ?? 0) + 1}`}
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Chapter
+            </p>
+            <h1 className="font-serif text-3xl font-semibold tracking-tight">
+              {chapter.title || `Chapter ${(chapter.order_index ?? 0) + 1}`}
+            </h1>
+          </div>
+          <Link
+            href={`/manuscript?chapter=${chapter.id}`}
+            className="shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Read this chapter
+          </Link>
+        </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Badge variant="muted">Status: {chapter.status}</Badge>
           <span>·</span>

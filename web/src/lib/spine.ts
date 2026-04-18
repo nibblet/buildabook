@@ -44,6 +44,13 @@ export type SpineData = {
   totalWordcount: number;
 };
 
+/** Scene order within a chapter (matches chapter page query, not global order_index-only sort). */
+export function sortScenesByOrderIndex<T extends Scene>(scenes: T[]): T[] {
+  return [...scenes].sort(
+    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0),
+  );
+}
+
 export async function loadSpine(projectId: string): Promise<SpineData> {
   const supabase = await supabaseServer();
 
@@ -79,6 +86,9 @@ export async function loadSpine(projectId: string): Promise<SpineData> {
   const scenesByChapter: Record<string, Scene[]> = {};
   for (const s of scenesRaw) {
     (scenesByChapter[s.chapter_id] ||= []).push(s);
+  }
+  for (const cid of Object.keys(scenesByChapter)) {
+    scenesByChapter[cid] = sortScenesByOrderIndex(scenesByChapter[cid]!);
   }
 
   const chaptersWithScenes: SpineChapter[] = chaptersRaw.map((c) => ({

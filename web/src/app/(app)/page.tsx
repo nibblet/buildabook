@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpen, Sparkles, ArrowRight, Settings } from "lucide-react";
+import { BookOpen, Sparkles, ArrowRight, Settings, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -194,7 +194,7 @@ export default async function DashboardPage() {
                   `Chapter ${currentChapter.order_index ?? "—"}`}
               </div>
             )}
-            <div className="pt-1">
+            <div className="flex flex-wrap gap-2 pt-1">
               {currentScene ? (
                 <Link href={`/scenes/${currentScene.id}`}>
                   <Button className="gap-2">
@@ -208,6 +208,12 @@ export default async function DashboardPage() {
                   </Button>
                 </Link>
               ) : null}
+              <Link href="/manuscript">
+                <Button variant="outline" className="gap-2">
+                  <ScrollText className="h-4 w-4" />
+                  Read manuscript
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
