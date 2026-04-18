@@ -3,6 +3,10 @@ const required = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ] as const;
 
+// NOTE: Never use `get()` for vars needed in Client Components — dynamic
+// `process.env[name]` is not inlined; use `process.env.NEXT_PUBLIC_*` literals
+// (see `lib/supabase/client.ts`).
+
 function get(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
   if (!value) {
