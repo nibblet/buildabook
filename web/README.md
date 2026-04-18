@@ -25,8 +25,8 @@ Use a single Supabase project for production data. Run the migration once:
 
 Authentication → URL Configuration:
 
-- **Site URL:** `https://write.forvex.app` (and `http://localhost:3000` while developing locally).
-- **Redirect URLs:** include `http://localhost:3000/auth/callback` and `https://write.forvex.app/auth/callback` (add preview URLs only if you use Vercel previews with the same Supabase project).
+- **Site URL:** primary app origin (fallback when a redirect is invalid). For this deployment use your real Vercel URL (e.g. `https://….vercel.app`) or production domain — **not** another app’s URL, or magic links can bounce there. Use **https**, not http.
+- **Redirect URLs:** must include **exactly** `https://<your-app>/auth/callback` (no query string required). Magic link uses that URL; return path is stored in a short-lived cookie. Add each app that shares this Supabase project (e.g. `http://localhost:3000/auth/callback` for local).
 
 **Keeping it private:** Sign-in uses Supabase Auth (magic link). Row Level Security ties data to `auth.uid()`. In production, set **`APP_ALLOWED_EMAILS`** in Vercel (comma-separated); anyone not listed gets signed out immediately after login. Leave it empty only if you intentionally want **any** email that completes magic-link auth to use the app. **`APP_ADMIN_EMAILS`** grants `/admin` without needing to appear on the allowlist.
 

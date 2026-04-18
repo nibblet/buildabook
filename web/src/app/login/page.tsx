@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AUTH_RETURN_COOKIE } from "@/lib/auth-return-path";
 
 export default function LoginPage() {
   return (
@@ -46,15 +47,21 @@ function LoginInner() {
     setMessage(null);
     try {
       const supabase = supabaseBrowser();
-      // Prefer NEXT_PUBLIC_APP_URL (set on Vercel to this deployment’s URL) so
-      // magic links match Supabase Redirect URLs; window.origin can differ from
-      // env if Site URL fallback is used elsewhere.
+      // Prefer NEXT_PUBLIC_APP_URL on Vercel so the redirect matches Supabase allowlist.
       const appBase =
         process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
         window.location.origin;
-      const redirectTo = `${appBase}/auth/callback?next=${encodeURIComponent(
-        nextPath,
-      )}`;
+      // Store return path in a cookie — magic link redirect URL must match allowlist
+      // exactly (no ?next=…); query variants often fall back to Supabase “Site URL”.
+      const secure = window.location.protocol === "https:";
+      document.cookie = [
+        `${AUTH_RETURN_COOKIE}=${encodeURIComponent(nextPath)}`,
+        "path=/",
+        "max-age=600",
+        "SameSite=Lax",
+        ...(secure ? ["Secure"] : []),
+      ].join("; ");
+      const redirectTo = `${appBase}/auth/callback`;
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: redirectTo },
