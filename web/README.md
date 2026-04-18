@@ -28,6 +28,8 @@ Authentication → URL Configuration:
 - **Site URL:** `https://write.forvex.app` (and `http://localhost:3000` while developing locally).
 - **Redirect URLs:** include `http://localhost:3000/auth/callback` and `https://write.forvex.app/auth/callback` (add preview URLs only if you use Vercel previews with the same Supabase project).
 
+**Keeping it private:** Sign-in uses Supabase Auth (magic link). Row Level Security ties data to `auth.uid()`. In production, set **`APP_ALLOWED_EMAILS`** in Vercel (comma-separated); anyone not listed gets signed out immediately after login. Leave it empty only if you intentionally want **any** email that completes magic-link auth to use the app. **`APP_ADMIN_EMAILS`** grants `/admin` without needing to appear on the allowlist.
+
 ### 2. Configure env
 
 ```bash

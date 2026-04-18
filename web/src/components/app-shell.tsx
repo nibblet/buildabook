@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   Menu,
   LogOut,
@@ -18,6 +19,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { SpineData } from "@/lib/spine";
 import { NovelSpine } from "@/components/novel-spine";
+
+const WRITING_ROUTES = ["/scenes/", "/freeform"];
+
+function getMode(pathname: string): "writing" | "planning" {
+  if (WRITING_ROUTES.some((r) => pathname.startsWith(r))) return "writing";
+  return "planning";
+}
 
 export function AppShell({
   spine,
@@ -35,11 +43,23 @@ export function AppShell({
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const showSpine = !pathname.startsWith("/onboarding");
+  const mode = getMode(pathname);
+
+  // Subscribe to focus-mode body attribute set by scene pages.
+  const focusMode = useSyncExternalStore(
+    (cb) => {
+      const obs = new MutationObserver(cb);
+      obs.observe(document.body, { attributes: true, attributeFilter: ["data-focus-mode"] });
+      return () => obs.disconnect();
+    },
+    () => document.body.getAttribute("data-focus-mode") === "true",
+    () => false,
+  );
 
   return (
-    <div className="flex min-h-screen">
-      {showSpine && (
-        <aside className="hidden w-72 shrink-0 border-r bg-muted/30 md:flex md:flex-col">
+    <div className="flex min-h-screen" data-mode={mode}>
+      {showSpine && !focusMode && (
+        <aside className="hidden w-72 shrink-0 border-r bg-muted/30 md:flex md:flex-col transition-all duration-[420ms] [transition-timing-function:cubic-bezier(0.2,0,0,1)]">
           <SidebarHeader title={projectTitle} />
           <StudioNav />
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -56,8 +76,8 @@ export function AppShell({
       )}
 
       <div className="flex min-h-screen flex-1 flex-col">
-        {showSpine && (
-          <header className="flex items-center gap-2 border-b bg-background/80 px-4 py-3 backdrop-blur md:hidden">
+        {showSpine && !focusMode && (
+          <header className="flex items-center gap-2 border-b bg-background/80 px-3 py-2 backdrop-blur md:hidden">
             <Button
               variant="ghost"
               size="icon"
@@ -66,11 +86,21 @@ export function AppShell({
             >
               <Menu className="h-4 w-4" />
             </Button>
+            <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-primary/30">
+              <Image
+                src="/author-avatar.png"
+                alt="Author avatar"
+                fill
+                sizes="28px"
+                className="object-cover object-top"
+                unoptimized
+              />
+            </div>
             <div className="truncate text-sm font-medium">{projectTitle}</div>
           </header>
         )}
 
-        {drawerOpen && showSpine && (
+        {drawerOpen && showSpine && !focusMode && (
           <div className="border-b bg-muted/50 p-3 md:hidden">
             <StudioNav className="mb-3 border-b pb-3" />
             {spine ? <NovelSpine spine={spine} /> : null}
@@ -94,12 +124,21 @@ export function AppShell({
 function SidebarHeader({ title }: { title: string }) {
   return (
     <div className="border-b px-4 py-4">
-      <Link
-        href="/"
-        className="flex items-center gap-2 text-sm font-medium leading-tight hover:underline"
-      >
-        <LayoutDashboard className="h-4 w-4" />
-        <span className="truncate">{title}</span>
+      <Link href="/" className="group flex items-center gap-3">
+        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-primary/30 shadow-sm transition-shadow group-hover:shadow-md">
+          <Image
+            src="/author-avatar.png"
+            alt="Author avatar"
+            fill
+            sizes="40px"
+            className="object-cover object-top"
+            priority
+            unoptimized
+          />
+        </div>
+        <span className="truncate text-sm font-medium leading-tight group-hover:underline">
+          {title}
+        </span>
       </Link>
     </div>
   );

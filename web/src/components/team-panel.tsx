@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 import { PERSONAS } from "@/lib/ai/personas";
 import { askPersona } from "@/lib/ai/ask";
 
@@ -131,19 +132,16 @@ export function TeamPanel({
   return (
     <div className="flex h-full flex-col gap-3">
       <div>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Your team
-        </div>
+        <div className="label-eyebrow mb-2">Your team</div>
         <div className="flex flex-wrap gap-1.5">
           {ALL_PERSONA_KEYS.map((k) => {
             const p = PERSONAS[k];
             const alias = aliases?.[k] || p.label;
-            const isActive = activeKey === k;
             const Ico = ICONS[k];
             return (
-              <button
+              <Chip
                 key={k}
-                type="button"
+                active={activeKey === k}
                 title={p.tagline}
                 onClick={() => {
                   setActiveKey(k);
@@ -151,16 +149,10 @@ export function TeamPanel({
                   setProofParts(null);
                   setError(null);
                 }}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
-                  isActive
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-background hover:bg-accent",
-                )}
               >
                 <Ico className="h-3 w-3 opacity-90" />
                 <span className="max-[380px]:hidden">{alias}</span>
-              </button>
+              </Chip>
             );
           })}
         </div>
@@ -168,19 +160,12 @@ export function TeamPanel({
       </div>
 
       <div className="space-y-1.5">
-        <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Try
-        </div>
+        <div className="label-eyebrow">Try</div>
         <div className="flex flex-wrap gap-1">
           {quicks.map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => setPrompt(q)}
-              className="rounded-full border border-input bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
+            <Chip key={q} onClick={() => setPrompt(q)}>
               {q}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
@@ -239,9 +224,7 @@ export function TeamPanel({
       {(response || proofParts) && (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="mb-1 flex items-center justify-between">
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {label}
-            </div>
+            <div className="label-eyebrow">{label}</div>
             <div className="flex gap-1">
               {showInsertPartner && (
                 <Button

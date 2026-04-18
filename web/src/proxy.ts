@@ -73,8 +73,8 @@ export async function proxy(req: NextRequest) {
 
   if (allowed.length > 0 && !allowed.includes(email) && !admins.includes(email)) {
     const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("error", "not_allowed");
+    url.pathname = "/auth/signout";
+    url.searchParams.set("next", "/login?error=not_allowed");
     return NextResponse.redirect(url);
   }
 

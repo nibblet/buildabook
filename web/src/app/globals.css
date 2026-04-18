@@ -3,103 +3,225 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─── Raw palette ─────────────────────────────────────────────────── */
+
 :root {
-  --background: #fafaf9;
-  --foreground: #1c1917;
-  --card: #ffffff;
-  --card-foreground: #1c1917;
-  --popover: #ffffff;
-  --popover-foreground: #1c1917;
-  --primary: #1c1917;
-  --primary-foreground: #fafaf9;
-  --secondary: #f5f5f4;
-  --secondary-foreground: #1c1917;
-  --muted: #f5f5f4;
-  --muted-foreground: #78716c;
-  --accent: #f5f5f4;
-  --accent-foreground: #1c1917;
-  --destructive: #dc2626;
-  --destructive-foreground: #fafaf9;
-  --border: #e7e5e4;
-  --input: #e7e5e4;
-  --ring: #a8a29e;
-  --radius: 0.625rem;
+  /* writing surface — warm paper */
+  --paper:              #F8F7F4;
+  --paper-panel:        #FFFFFF;
+  --paper-ink:          #1F2A44;
+  --paper-muted:        #5C6270;
+  --paper-rule:         #E9E5DD;
+  --paper-accent:       #D4AF7F;
+  --paper-accent-hover: #C49B6A;
+  --paper-accent-ink:   #1F2A44;
+
+  /* planning chrome — cool dusk */
+  --dusk:               #EAF1FA;
+  --dusk-panel:         #F4F6FB;
+  --dusk-lavender:      #E8E1F5;
+  --dusk-ink:           #1F2A44;
+  --dusk-muted:         #5C6270;
+  --dusk-rule:          #D8DEE9;
+  --dusk-accent:        #D4AF7F;
+  --dusk-accent-hover:  #C49B6A;
+  --dusk-accent-ink:    #1F2A44;
+
+  /* state (shared) */
+  --state-success:      #3F7D58;
+  --state-warning:      #B8882E;
+  --state-danger:       #B23B3B;
+
+  /* default to planning mode */
+  --background:         var(--dusk);
+  --foreground:         var(--dusk-ink);
+  --card:               var(--dusk-panel);
+  --card-foreground:    var(--dusk-ink);
+  --popover:            var(--dusk-panel);
+  --popover-foreground: var(--dusk-ink);
+  --primary:            var(--dusk-accent);
+  --primary-foreground: var(--dusk-accent-ink);
+  --secondary:          var(--dusk-lavender);
+  --secondary-foreground: var(--dusk-ink);
+  --muted:              var(--dusk-panel);
+  --muted-foreground:   var(--dusk-muted);
+  --accent:             var(--dusk-lavender);
+  --accent-foreground:  var(--dusk-ink);
+  --destructive:        var(--state-danger);
+  --destructive-foreground: #F8F7F4;
+  --border:             var(--dusk-rule);
+  --input:              var(--dusk-rule);
+  --ring:               var(--dusk-accent);
+  --radius:             0.625rem;
 }
+
+/* ─── Mode overrides ──────────────────────────────────────────────── */
+
+[data-mode="planning"] {
+  --background:         var(--dusk);
+  --foreground:         var(--dusk-ink);
+  --card:               var(--dusk-panel);
+  --card-foreground:    var(--dusk-ink);
+  --popover:            var(--dusk-panel);
+  --popover-foreground: var(--dusk-ink);
+  --primary:            var(--dusk-accent);
+  --primary-foreground: var(--dusk-accent-ink);
+  --secondary:          var(--dusk-lavender);
+  --secondary-foreground: var(--dusk-ink);
+  --muted:              var(--dusk-panel);
+  --muted-foreground:   var(--dusk-muted);
+  --accent:             var(--dusk-lavender);
+  --accent-foreground:  var(--dusk-ink);
+  --border:             var(--dusk-rule);
+  --input:              var(--dusk-rule);
+  --ring:               var(--dusk-accent);
+  --destructive:        var(--state-danger);
+  --destructive-foreground: #F8F7F4;
+}
+
+[data-mode="writing"] {
+  --background:         var(--paper);
+  --foreground:         var(--paper-ink);
+  --card:               var(--paper-panel);
+  --card-foreground:    var(--paper-ink);
+  --popover:            var(--paper-panel);
+  --popover-foreground: var(--paper-ink);
+  --primary:            var(--paper-accent);
+  --primary-foreground: var(--paper-accent-ink);
+  --secondary:          var(--paper-panel);
+  --secondary-foreground: var(--paper-ink);
+  --muted:              var(--paper-panel);
+  --muted-foreground:   var(--paper-muted);
+  --accent:             var(--paper-panel);
+  --accent-foreground:  var(--paper-ink);
+  --border:             var(--paper-rule);
+  --input:              var(--paper-rule);
+  --ring:               var(--paper-accent);
+  --destructive:        var(--state-danger);
+  --destructive-foreground: #F8F7F4;
+}
+
+/* ─── Dark mode (Phase D5 — tokens drafted, applied via .dark class) ── */
 
 .dark {
-  --background: #0c0a09;
-  --foreground: #fafaf9;
-  --card: #1c1917;
-  --card-foreground: #fafaf9;
-  --popover: #1c1917;
-  --popover-foreground: #fafaf9;
-  --primary: #fafaf9;
-  --primary-foreground: #0c0a09;
-  --secondary: #292524;
-  --secondary-foreground: #fafaf9;
-  --muted: #292524;
-  --muted-foreground: #a8a29e;
-  --accent: #292524;
-  --accent-foreground: #fafaf9;
-  --destructive: #7f1d1d;
-  --destructive-foreground: #fafaf9;
-  --border: #292524;
-  --input: #292524;
-  --ring: #57534e;
+  /* writing surface, dark — lamplight reading */
+  --paper:              #1A1A1F;
+  --paper-panel:        #232329;
+  --paper-ink:          #E8E5DE;
+  --paper-muted:        #9A97A0;
+  --paper-rule:         #2F2F36;
+  --paper-accent:       #C79864;
+  --paper-accent-hover: #B8884E;
+  --paper-accent-ink:   #1A1A1F;
+
+  /* planning chrome, dark — deep dusk */
+  --dusk:               #121722;
+  --dusk-panel:         #1A2030;
+  --dusk-lavender:      #2A2440;
+  --dusk-ink:           #E5EAF3;
+  --dusk-muted:         #8F96A5;
+  --dusk-rule:          #263047;
+  --dusk-accent:        #C79864;
+  --dusk-accent-hover:  #B8884E;
+  --dusk-accent-ink:    #121722;
 }
 
+/* ─── Tailwind theme bridge ───────────────────────────────────────── */
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
+  --color-background:         var(--background);
+  --color-foreground:         var(--foreground);
+  --color-card:               var(--card);
+  --color-card-foreground:    var(--card-foreground);
+  --color-popover:            var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
+  --color-primary:            var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
+  --color-secondary:          var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
+  --color-muted:              var(--muted);
+  --color-muted-foreground:   var(--muted-foreground);
+  --color-accent:             var(--accent);
+  --color-accent-foreground:  var(--accent-foreground);
+  --color-destructive:        var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-border:             var(--border);
+  --color-input:              var(--input);
+  --color-ring:               var(--ring);
+  --color-state-success:      var(--state-success);
+  --color-state-warning:      var(--state-warning);
+  --color-state-danger:       var(--state-danger);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --font-sans:  var(--font-geist-sans);
+  --font-mono:  var(--font-geist-mono);
   --font-serif: var(--font-lora);
 }
+
+/* ─── Base styles ─────────────────────────────────────────────────── */
 
 @layer base {
   * {
     border-color: var(--border);
   }
+
   body {
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 180ms cubic-bezier(0.2, 0, 0, 1),
+                color 180ms cubic-bezier(0.2, 0, 0, 1);
   }
-  .prose-writing {
-    font-family: var(--font-serif), Georgia, "Times New Roman", serif;
-    font-size: 1.125rem;
-    line-height: 1.75;
-    color: var(--foreground);
-  }
-  .prose-writing p {
-    margin-bottom: 1.25em;
-  }
-  .prose-writing p:first-child {
-    margin-top: 0;
+
+  @media (prefers-reduced-motion: reduce) {
+    body { transition: none; }
+    *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
   }
 }
+
+/* ─── Typography utilities ────────────────────────────────────────── */
+
+/* Book prose — used in the editor and Partner AI output */
+.prose-writing {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-size: 1.125rem;
+  line-height: 1.75;
+  color: var(--foreground);
+}
+.prose-writing p {
+  margin-bottom: 1.25em;
+}
+.prose-writing p:first-child {
+  margin-top: 0;
+}
+
+/* Eyebrow labels — "Story so far", "Progress", "Your team" etc. */
+.label-eyebrow {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Craft term inline links */
+.craft-term {
+  font-weight: 500;
+  cursor: help;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+  text-underline-offset: 4px;
+}
+
+/* ─── TipTap editor ───────────────────────────────────────────────── */
 
 .tiptap:focus-visible {
   outline: none;
@@ -111,4 +233,22 @@
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* ─── Writing mode surface overrides ──────────────────────────────── */
+
+/* In writing mode, no shadows on contained surfaces */
+[data-mode="writing"] .card-shadow {
+  box-shadow: none;
+  border-color: var(--paper-rule);
+}
+
+/* Vignette when Focus Mode is active */
+[data-focus-mode="true"] .focus-vignette::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, color-mix(in srgb, var(--paper-rule) 60%, transparent) 100%);
+  pointer-events: none;
+  z-index: 0;
 }

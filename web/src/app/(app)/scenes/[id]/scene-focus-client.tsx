@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Loader2, ChevronLeft } from "lucide-react";
+import { Check, Loader2, ChevronLeft, Maximize2, Minimize2, Sparkles } from "lucide-react";
+import { useFocusMode } from "@/hooks/use-focus-mode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Chip } from "@/components/ui/chip";
 import { ProseEditor, type ProseEditorHandle } from "@/components/prose-editor";
 import { TeamPanel } from "@/components/team-panel";
 import { saveSceneContent, updateSceneFields } from "../actions";
@@ -38,6 +40,7 @@ export function SceneFocusClient({
   BackLink: React.ReactNode;
 }) {
   const editorRef = useRef<ProseEditorHandle>(null);
+  const { focusMode, toggle: toggleFocus } = useFocusMode();
 
   const [title, setTitle] = useState(scene.title ?? "");
   const [goal, setGoal] = useState(scene.goal ?? "");
@@ -119,18 +122,25 @@ export function SceneFocusClient({
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-0px)] grid-rows-[auto_1fr] md:grid-cols-[1fr_22rem] md:grid-rows-1">
+    <div
+      className={cn(
+        "grid min-h-[calc(100vh-0px)] grid-rows-[auto_1fr]",
+        focusMode
+          ? "md:grid-cols-1 md:grid-rows-1"
+          : "md:grid-cols-[1fr_22rem] md:grid-rows-1",
+      )}
+    >
       <div className="flex min-h-0 flex-col border-b md:border-b-0 md:border-r">
         <div className="flex items-center justify-between border-b px-4 py-2">
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {BackLink ?? (
+            {!focusMode && (BackLink ?? (
               <Link
                 href={`/chapters/${chapter.id}`}
                 className="inline-flex items-center gap-1 hover:text-foreground"
               >
                 <ChevronLeft className="h-3 w-3" /> {chapter.title || "Chapter"}
               </Link>
-            )}
+            ))}
             {sceneBeats.length > 0 && (
               <span>
                 · Beat:{" "}
@@ -151,13 +161,35 @@ export function SceneFocusClient({
               {formatNumber(wordcount)} {wordcount === 1 ? "word" : "words"}
             </span>
             <SaveBadge state={saveState} />
-            <Button size="sm" variant="outline" onClick={markDone}>
-              Mark scene done
-            </Button>
+            {!focusMode && (
+              <Button size="sm" variant="outline" onClick={markDone}>
+                Mark scene done
+              </Button>
+            )}
+            <button
+              type="button"
+              onClick={toggleFocus}
+              title={focusMode ? "Exit focus mode (Esc)" : "Enter focus mode"}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {focusMode ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Maximize2 className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {focusMode ? "Exit focus" : "Focus"}
+              </span>
+            </button>
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-2xl flex-1 overflow-y-auto px-6 py-8">
+        <div
+          className={cn(
+            "mx-auto w-full flex-1 overflow-y-auto px-6 py-8",
+            focusMode ? "max-w-3xl" : "max-w-2xl",
+          )}
+        >
           <Input
             value={title}
             onChange={(e) => {
@@ -168,40 +200,31 @@ export function SceneFocusClient({
             className="mb-6 h-auto border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
           />
 
-          <details className="mb-6 rounded-md border bg-muted/30 p-3 text-sm" open>
-            <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <details className="mb-6 rounded-md border p-3 text-sm" open>
+            <summary className="label-eyebrow cursor-pointer select-none">
               Story beats — what milestone does this scene advance?
             </summary>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
               Beats are checkpoints (Ordinary World, Meet Cute, …), not chapter
-              titles.               Tag each scene so the left spine shows progression the way you
+              titles. Tag each scene so the left spine shows progression the way you
               intend — this scene is listed under every beat you select. Untagged scenes
               stay grouped under this chapter&apos;s primary beat only.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {beats.map((b) => {
-                const on = beatIds.includes(b.id);
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => toggleBeat(b.id)}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs transition-colors",
-                      on
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input bg-background hover:bg-accent",
-                    )}
-                  >
-                    {b.title}
-                  </button>
-                );
-              })}
+              {beats.map((b) => (
+                <Chip
+                  key={b.id}
+                  active={beatIds.includes(b.id)}
+                  onClick={() => toggleBeat(b.id)}
+                >
+                  {b.title}
+                </Chip>
+              ))}
             </div>
           </details>
 
-          <details className="mb-6 rounded-md border bg-muted/30 p-3 text-sm">
-            <summary className="cursor-pointer select-none text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <details className="mb-6 rounded-md border p-3 text-sm">
+            <summary className="label-eyebrow cursor-pointer select-none">
               Scene card — goal · conflict · outcome
             </summary>
             <div className="mt-3 grid gap-2">
@@ -248,16 +271,70 @@ export function SceneFocusClient({
         </div>
       </div>
 
-      <aside className="min-h-0 overflow-y-auto border-t bg-muted/20 p-4 md:border-t-0">
-        <TeamPanel
+      {!focusMode && (
+        <aside className="min-h-0 overflow-y-auto border-t bg-card/60 p-4 backdrop-blur-sm md:border-t-0">
+          <TeamPanel
+            sceneId={scene.id}
+            chapterId={chapter.id}
+            aliases={project.persona_aliases}
+            onInsertProse={(text) => {
+              editorRef.current?.insertAtCursor(text);
+            }}
+          />
+        </aside>
+      )}
+
+      {/* Floating team reopener in focus mode */}
+      {focusMode && (
+        <FloatingTeamReopener
           sceneId={scene.id}
           chapterId={chapter.id}
           aliases={project.persona_aliases}
-          onInsertProse={(text) => {
-            editorRef.current?.insertAtCursor(text);
-          }}
+          onInsertProse={(text) => editorRef.current?.insertAtCursor(text)}
         />
-      </aside>
+      )}
+    </div>
+  );
+}
+
+function FloatingTeamReopener({
+  sceneId,
+  chapterId,
+  aliases,
+  onInsertProse,
+}: {
+  sceneId: string;
+  chapterId: string;
+  aliases: Project["persona_aliases"];
+  onInsertProse: (text: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      {open && (
+        <div className="w-80 rounded-xl border bg-card/95 p-4 shadow-lg backdrop-blur-sm">
+          <TeamPanel
+            sceneId={sceneId}
+            chapterId={chapterId}
+            aliases={aliases}
+            onInsertProse={onInsertProse}
+          />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={open ? "Close team panel" : "Open team panel"}
+        className={cn(
+          "inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-md transition-colors",
+          open
+            ? "bg-primary text-primary-foreground"
+            : "bg-card text-muted-foreground hover:bg-accent hover:text-foreground",
+        )}
+      >
+        <Sparkles className="h-4 w-4" />
+      </button>
     </div>
   );
 }

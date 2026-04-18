@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpen, Sparkles, ArrowRight } from "lucide-react";
+import { BookOpen, Sparkles, ArrowRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ProgressRing } from "@/components/progress-ring";
 import { getOrCreateProject, isOnboarded } from "@/lib/projects";
 import {
   currentBeatFor,
@@ -21,6 +22,43 @@ import { loadPrimaryRelationshipChemistry } from "@/lib/dashboard/chemistry";
 import { buildNextActions } from "@/lib/dashboard/next-actions";
 import { SessionContinuitySection } from "./session-continuity";
 import type { OpenThread, WritingSession } from "@/lib/supabase/types";
+
+function buildNarrativeFrame(
+  words: number,
+  target: number,
+  beatsCovered: number,
+  totalBeats: number,
+  act: number,
+): string {
+  const pct = Math.round((words / (target || 30000)) * 100);
+  const actLabel = act === 1 ? "Act 1" : act === 2 ? "Act 2" : "Act 3";
+
+  if (pct === 0) return "Your story is waiting to begin.";
+
+  const position =
+    pct < 10
+      ? "just getting started"
+      : pct < 25
+        ? "early in"
+        : pct < 40
+          ? "about a third of the way through"
+          : pct < 60
+            ? "at the midpoint of"
+            : pct < 75
+              ? "well into"
+              : pct < 90
+                ? "nearing the end of"
+                : "almost finished with";
+
+  const beatLine =
+    beatsCovered === 0
+      ? "No beats covered yet."
+      : beatsCovered === totalBeats
+        ? "All beats covered."
+        : `${beatsCovered} of ${totalBeats} beats covered.`;
+
+  return `You're ${position} ${actLabel}. ${beatLine}`;
+}
 
 export default async function DashboardPage() {
   if (!envIsConfigured()) {
@@ -96,6 +134,14 @@ export default async function DashboardPage() {
     { planned: 0, drafting: 0, done: 0 } as Record<string, number>,
   );
 
+  const narrativeFrame = buildNarrativeFrame(
+    spine.totalWordcount,
+    project.target_wordcount,
+    beatsCovered,
+    spine.beats.length,
+    currentBeat?.act ?? 1,
+  );
+
   const nextActions = buildNextActions(spine, currentBeat?.id ?? null, {
     characterCount,
     relationshipCount,
@@ -108,19 +154,18 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-8">
+    <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-8 animate-in fade-in duration-300">
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Dashboard
-          </p>
+          <p className="label-eyebrow mb-1">Your story</p>
           <h1 className="font-serif text-3xl font-semibold tracking-tight">
             {project.title}
           </h1>
         </div>
         <Link href="/project/settings">
-          <Button variant="ghost" size="sm">
-            Settings
+          <Button variant="ghost" size="icon">
+            <Settings className="h-4 w-4" />
+            <span className="sr-only">Settings</span>
           </Button>
         </Link>
       </header>
@@ -128,77 +173,78 @@ export default async function DashboardPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
-              <BookOpen className="h-4 w-4" /> Where you are
+            <CardTitle className="flex items-center gap-2 label-eyebrow">
+              <BookOpen className="h-3.5 w-3.5" /> Where you are
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {currentBeat && (
-              <div className="text-sm">
-                <span className="text-muted-foreground">
-                  <CraftTerm slug="beat">Current beat</CraftTerm>:
-                </span>{" "}
-                <span className="font-medium">{currentBeat.title}</span>
+              <div>
+                <p className="label-eyebrow mb-1">
+                  <CraftTerm slug="beat">Current beat</CraftTerm>
+                </p>
+                <p className="font-serif text-xl font-semibold leading-tight">
+                  {currentBeat.title}
+                </p>
               </div>
             )}
             {currentChapter && (
-              <div className="text-sm">
-                <span className="text-muted-foreground">Current chapter:</span>{" "}
-                <span className="font-medium">
-                  {currentChapter.title ||
-                    `Chapter ${currentChapter.order_index ?? "—"}`}
-                </span>
+              <div className="text-sm text-muted-foreground">
+                {currentChapter.title ||
+                  `Chapter ${currentChapter.order_index ?? "—"}`}
               </div>
             )}
-            {currentScene ? (
-              <Link href={`/scenes/${currentScene.id}`}>
-                <Button className="gap-2">
-                  Continue where you left off <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            ) : currentChapter ? (
-              <Link href={`/chapters/${currentChapter.id}`}>
-                <Button className="gap-2">
-                  Open chapter <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            ) : null}
+            <div className="pt-1">
+              {currentScene ? (
+                <Link href={`/scenes/${currentScene.id}`}>
+                  <Button className="gap-2">
+                    Continue where you left off <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : currentChapter ? (
+                <Link href={`/chapters/${currentChapter.id}`}>
+                  <Button className="gap-2">
+                    Open chapter <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
-              Progress
-            </CardTitle>
+            <CardTitle className="label-eyebrow">Progress</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-muted-foreground">Words</span>
-                <span className="font-medium tabular-nums">
-                  {formatNumber(spine.totalWordcount)} /{" "}
-                  {formatNumber(project.target_wordcount)}
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <ProgressRing pct={wordPct} size={72} />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium tabular-nums">
+                  {formatNumber(spine.totalWordcount)}{" "}
+                  <span className="font-normal text-muted-foreground">
+                    / {formatNumber(project.target_wordcount)}
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground">words written</p>
+              </div>
+            </div>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {narrativeFrame}
+            </p>
+            <div className="space-y-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span>Beats covered</span>
+                <span className="font-medium tabular-nums text-foreground">
+                  {beatsCovered} / {spine.beats.length}
                 </span>
               </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${wordPct}%` }}
-                />
+              <div className="flex items-center justify-between">
+                <span>Scenes</span>
+                <span className="font-medium tabular-nums text-foreground">
+                  {sceneCounts.drafting} drafting · {sceneCounts.done} done
+                </span>
               </div>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground">Beats covered</span>
-              <span className="font-medium tabular-nums">
-                {beatsCovered} / {spine.beats.length}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground">Scenes</span>
-              <span className="font-medium tabular-nums">
-                {sceneCounts.drafting} drafting · {sceneCounts.done} done
-              </span>
             </div>
           </CardContent>
         </Card>
@@ -232,7 +278,7 @@ export default async function DashboardPage() {
               <Link
                 key={a.key}
                 href={a.href}
-                className="group flex items-center justify-between rounded-md border bg-background px-4 py-3 text-sm transition-colors hover:bg-accent"
+                className="group flex items-center justify-between rounded-md border bg-background px-4 py-3 text-sm [transition:background-color_180ms_cubic-bezier(0.2,0,0,1),box-shadow_180ms_cubic-bezier(0.2,0,0,1)] hover:bg-accent hover:shadow-sm"
               >
                 <span>{a.label}</span>
                 <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />

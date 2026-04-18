@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Circle, CircleDot, CircleCheck, ChevronRight } from "lucide-react";
+import { Circle, CircleDot, CircleCheck } from "lucide-react";
 import type { SpineData } from "@/lib/spine";
 import { cn } from "@/lib/utils";
 
@@ -24,10 +24,8 @@ export function NovelSpine({ spine }: { spine: SpineData }) {
     <div className="space-y-5 text-sm">
       {[1, 2, 3].map((act) => (
         <div key={act}>
-          <div className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            {actLabels[act]}
-          </div>
-          <ul className="space-y-0.5">
+          <div className="label-eyebrow mb-2 px-1">{actLabels[act]}</div>
+          <ul className="space-y-1">
             {actGroups[act].map((b) => {
               const chapters = spine.chaptersByBeat[b.id] ?? [];
               const active = pathname === `/beats/${b.id}`;
@@ -41,8 +39,8 @@ export function NovelSpine({ spine }: { spine: SpineData }) {
                     )}
                   >
                     <CoverageDot coverage={b.coverage} />
-                    <span className="flex-1 leading-snug">
-                      <span className="font-medium">{b.title}</span>
+                    <span className="flex-1 leading-snug font-medium">
+                      {b.title}
                     </span>
                   </Link>
 
@@ -59,14 +57,13 @@ export function NovelSpine({ spine }: { spine: SpineData }) {
                                 chapActive && "bg-accent",
                               )}
                             >
-                              <ChevronRight className="h-3 w-3 opacity-40" />
-                              <span className="truncate">
+                              <span className="truncate text-muted-foreground">
                                 {c.title || `Chapter ${c.order_index ?? "—"}`}
                               </span>
                             </Link>
 
                             {c.scenes.length > 0 && (
-                              <ul className="ml-4 space-y-0.5">
+                              <ul className="ml-3 space-y-0.5">
                                 {c.scenes.map((s, idx) => {
                                   const sceneActive = pathname === `/scenes/${s.id}`;
                                   return (
@@ -74,10 +71,11 @@ export function NovelSpine({ spine }: { spine: SpineData }) {
                                       <Link
                                         href={`/scenes/${s.id}`}
                                         className={cn(
-                                          "flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground",
-                                          sceneActive && "bg-accent text-foreground",
+                                          "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground",
+                                          sceneActive && "bg-accent text-foreground font-medium",
                                         )}
                                       >
+                                        <span className="h-1 w-1 shrink-0 rounded-full bg-current opacity-40" />
                                         <span className="tabular-nums">
                                           Sc.{" "}
                                           {typeof s.order_index === "number"
@@ -86,7 +84,7 @@ export function NovelSpine({ spine }: { spine: SpineData }) {
                                         </span>
                                         {s.title && (
                                           <span className="truncate">
-                                            · {s.title}
+                                            {s.title}
                                           </span>
                                         )}
                                       </Link>
@@ -116,8 +114,8 @@ function CoverageDot({
   coverage: "empty" | "partial" | "covered";
 }) {
   if (coverage === "covered")
-    return <CircleCheck className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />;
+    return <CircleCheck className="mt-0.5 h-3.5 w-3.5 text-state-warning" />;
   if (coverage === "partial")
-    return <CircleDot className="mt-0.5 h-3.5 w-3.5 text-amber-600" />;
-  return <Circle className="mt-0.5 h-3.5 w-3.5 text-muted-foreground/60" />;
+    return <CircleDot className="mt-0.5 h-3.5 w-3.5 text-state-warning/60" />;
+  return <Circle className="mt-0.5 h-3.5 w-3.5 text-muted-foreground/40" />;
 }
