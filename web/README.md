@@ -75,7 +75,7 @@ Explicitly **not** in Phase 0 (see v2 §18):
 ## Deploy (single production environment)
 
 - **Git:** use feature branches and merge to `main` when ready; avoid risky schema changes without testing the migration in SQL Editor on a backup mindset first.
-- **Vercel:** Production points at `write.forvex.app`; env vars reference your **one** Supabase project.
+- **Vercel:** Set **Root Directory** to **`web`** (repo root has no `package.json`; the Next app is in `web/`). Production points at `write.forvex.app`; env vars reference your **one** Supabase project.
 - Optional Vercel previews can use the **same** Supabase keys if you accept that previews hit real data — many teams disable previews for auth apps or keep preview deploys branch-only locally. Pick what matches your risk tolerance.
 
 No separate staging Supabase project is required for this repo’s documented setup.
