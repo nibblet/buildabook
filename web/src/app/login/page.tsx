@@ -46,7 +46,13 @@ function LoginInner() {
     setMessage(null);
     try {
       const supabase = supabaseBrowser();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+      // Prefer NEXT_PUBLIC_APP_URL (set on Vercel to this deployment’s URL) so
+      // magic links match Supabase Redirect URLs; window.origin can differ from
+      // env if Site URL fallback is used elsewhere.
+      const appBase =
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+        window.location.origin;
+      const redirectTo = `${appBase}/auth/callback?next=${encodeURIComponent(
         nextPath,
       )}`;
       const { error } = await supabase.auth.signInWithOtp({
