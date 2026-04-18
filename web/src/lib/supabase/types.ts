@@ -1,5 +1,5 @@
 // Minimal TypeScript types for our Supabase tables.
-// Keep in sync with supabase/migrations/0001_init.sql.
+// Keep in sync with supabase/migrations (e.g. 0001_init, 0004_app_feedback).
 
 export type PersonaKey =
   | "partner"
@@ -156,6 +156,17 @@ export type WritingSession = {
   last_scene_id: string | null;
   last_action: string | null;
   ended_at: string;
+};
+
+/** Free-text product feedback (Phase 3); developer reads via Admin + service role or Supabase UI. */
+export type AppFeedback = {
+  id: string;
+  project_id: string | null;
+  user_id: string;
+  author_email: string | null;
+  body: string;
+  page_context: string | null;
+  created_at: string;
 };
 
 export type AiInteraction = {

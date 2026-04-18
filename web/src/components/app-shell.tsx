@@ -14,6 +14,7 @@ import {
   Heart,
   BookMarked,
   Settings,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -150,6 +151,7 @@ const STUDIO_LINKS = [
   { href: "/world", label: "World", icon: Globe },
   { href: "/relationships", label: "Relationships", icon: Heart },
   { href: "/spine", label: "Story spine", icon: BookMarked },
+  { href: "/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/project/settings", label: "Settings", icon: Settings },
 ] as const;
 

@@ -763,6 +763,7 @@ Each phase deploys a working app. Phase 0 ships in days.
 **Goal:** share with Paul; export; last rough edges.
 
 **Ships:**
+- **Author → developer feedback** — free-text notes from Dawn stored in `app_feedback` (Supabase); Paul reviews in **Admin** (with service-role env) or the Supabase Table Editor — no Markdown files on disk (serverless-safe).
 - **Reader mode** share links + SMS to Paul
 - `.docx` export (`docx` npm package)
 - Tense-drift specific sub-check in Proofreader (catches present-tense drift she mentions)

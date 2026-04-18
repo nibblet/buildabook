@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { formatNumber } from "@/lib/utils";
+import type { AppFeedback } from "@/lib/supabase/types";
 
 export default async function AdminPage() {
   const supabase = await supabaseServer();
@@ -23,6 +24,23 @@ export default async function AdminPage() {
     .order("created_at", { ascending: false });
 
   const rows = interactions ?? [];
+
+  let feedbackRows: AppFeedback[] = [];
+  let feedbackLoadError: string | null = null;
+  try {
+    const admin = await supabaseAdmin();
+    const { data: fb, error: fbErr } = await admin
+      .from("app_feedback")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (fbErr) feedbackLoadError = fbErr.message;
+    else feedbackRows = (fb ?? []) as AppFeedback[];
+  } catch (e) {
+    feedbackLoadError =
+      e instanceof Error ? e.message : "Admin client unavailable.";
+  }
+
   const totalCost = rows.reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
   const totalInput = rows.reduce((s, r) => s + (r.input_tokens ?? 0), 0);
   const totalOutput = rows.reduce((s, r) => s + (r.output_tokens ?? 0), 0);
@@ -117,6 +135,49 @@ export default async function AdminPage() {
               )}
             </tbody>
           </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm text-muted-foreground">
+            User feedback
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {feedbackLoadError ? (
+            <p className="text-sm text-muted-foreground">
+              {feedbackLoadError.includes("SERVICE_ROLE")
+                ? "Set SUPABASE_SERVICE_ROLE_KEY on the server to list feedback here, or read the app_feedback table in Supabase."
+                : feedbackLoadError}
+            </p>
+          ) : feedbackRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No feedback yet.</p>
+          ) : (
+            <ul className="space-y-4 text-sm">
+              {feedbackRows.map((f) => (
+                <li
+                  key={f.id}
+                  className="border-b border-border/60 pb-4 last:border-0 last:pb-0"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {f.author_email ?? f.user_id.slice(0, 8)} ·{" "}
+                      {new Date(f.created_at).toLocaleString()}
+                    </span>
+                    {f.page_context ? (
+                      <span className="font-mono text-[10px] opacity-80">
+                        {f.page_context}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-foreground">
+                    {f.body}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 

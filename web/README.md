@@ -19,8 +19,8 @@ Stack:
 Use a single Supabase project for production data. Run the migration once:
 
 ```bash
-# In Supabase → SQL Editor, paste and run:
-#   ../supabase/migrations/0001_init.sql
+# In Supabase → SQL Editor, run migrations in order, e.g. 0001_init.sql through
+# 0004_app_feedback.sql (feedback notes for Phase 3).
 ```
 
 Authentication → URL Configuration:
