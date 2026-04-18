@@ -25,8 +25,8 @@ Use a single Supabase project for production data. Run the migration once:
 
 Authentication → URL Configuration:
 
-- **Site URL:** primary app origin (fallback when a redirect is invalid). For this deployment use your real Vercel URL (e.g. `https://….vercel.app`) or production domain — **not** another app’s URL, or magic links can bounce there. Use **https**, not http.
-- **Redirect URLs:** must include **exactly** `https://<your-app>/auth/callback` (no query string required). Magic link uses that URL; return path is stored in a short-lived cookie. Add each app that shares this Supabase project (e.g. `http://localhost:3000/auth/callback` for local).
+- **Site URL:** can stay on your **primary** product (e.g. another Vercel app). You do **not** need to change it when working on this app. It is only the fallback when a redirect is invalid; valid magic links use **Redirect URLs** below.
+- **Redirect URLs:** include **`https://<this-app>/auth/callback`** for each frontend that shares the Supabase project (plus `http://localhost:3000/auth/callback` for local). Magic link uses that exact path; post-login path is stored in a short-lived cookie (no `?next=` on the redirect URL).
 
 **Keeping it private:** Sign-in uses Supabase Auth (magic link). Row Level Security ties data to `auth.uid()`. In production, set **`APP_ALLOWED_EMAILS`** in Vercel (comma-separated); anyone not listed gets signed out immediately after login. Leave it empty only if you intentionally want **any** email that completes magic-link auth to use the app. **`APP_ADMIN_EMAILS`** grants `/admin` without needing to appear on the allowlist.
 
