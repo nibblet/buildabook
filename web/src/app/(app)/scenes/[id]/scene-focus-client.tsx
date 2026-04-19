@@ -21,7 +21,6 @@ import {
 } from "../actions";
 import { cn, formatNumber } from "@/lib/utils";
 import { stripHtml } from "@/lib/html";
-import { idsMatchingMentionsInText } from "@/lib/mentions/character-mention-backfill";
 import {
   type WritingProfileId,
   parseWritingProfile,
@@ -74,7 +73,6 @@ export function SceneFocusClient({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [continuityRefreshKey, setContinuityRefreshKey] = useState(0);
   const [beatIds, setBeatIds] = useState<string[]>(scene.beat_ids ?? []);
-  const [mentionQuery, setMentionQuery] = useState("");
   const [selectedRevisionId, setSelectedRevisionId] = useState(revisions[0]?.id ?? "");
   const [arcDrafts, setArcDrafts] = useState<Record<string, {
     reader_knowledge: string;
@@ -99,10 +97,6 @@ export function SceneFocusClient({
 
   const povCharacter = characters.find((c) => c.id === scene.pov_character_id);
   const sceneBeats = beats.filter((b) => beatIds.includes(b.id));
-  const mentionedCharacterIds = idsMatchingMentionsInText(
-    stripHtml(contentHtml ?? "").toLowerCase(),
-    characters,
-  );
   /** Full project cast — arc rows are optional notes per scene (not seeded). */
   const trackedCharacters = [...characters].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -172,16 +166,6 @@ export function SceneFocusClient({
     startTransition(async () => {
       await updateSceneFields(scene.id, { status: "done" });
     });
-  }
-
-  function insertCharacterMention() {
-    const q = mentionQuery.trim().toLowerCase();
-    if (!q) return;
-    const match = characters.find((c) => c.name.toLowerCase() === q)
-      ?? characters.find((c) => c.name.toLowerCase().startsWith(q));
-    if (!match) return;
-    editorRef.current?.insertAtCursor(`@${match.name} `);
-    setMentionQuery("");
   }
 
   function updateArcDraft(
@@ -370,49 +354,6 @@ export function SceneFocusClient({
             autofocus
             onChange={onProseChange}
           />
-
-          <details className="mt-6 rounded-md border p-3 text-sm">
-            <summary className="label-eyebrow cursor-pointer select-none">
-              Character mentions — insert and track
-            </summary>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Use <span className="font-mono">@Name</span> in prose to keep cast continuity searchable.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Input
-                list="character-mentions"
-                value={mentionQuery}
-                onChange={(e) => setMentionQuery(e.target.value)}
-                placeholder="Type a character name…"
-                className="max-w-xs"
-              />
-              <datalist id="character-mentions">
-                {characters.map((c) => (
-                  <option key={c.id} value={c.name} />
-                ))}
-              </datalist>
-              <Button type="button" size="sm" variant="outline" onClick={insertCharacterMention}>
-                Insert @character
-              </Button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {mentionedCharacterIds.length === 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  No explicit @mentions in this scene yet.
-                </span>
-              ) : (
-                mentionedCharacterIds.map((id) => {
-                  const c = characters.find((x) => x.id === id);
-                  if (!c) return null;
-                  return (
-                    <Chip key={c.id} active>
-                      @{c.name}
-                    </Chip>
-                  );
-                })
-              )}
-            </div>
-          </details>
 
           <details className="mt-6 rounded-md border p-3 text-sm">
             <summary className="label-eyebrow cursor-pointer select-none">

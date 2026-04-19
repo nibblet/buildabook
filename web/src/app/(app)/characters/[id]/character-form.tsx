@@ -101,14 +101,13 @@ export function CharacterForm({ character }: { character: Character }) {
                 <span className="font-medium text-foreground">
                   “{character.name.trim() || "this name"}”
                 </span>{" "}
-                with the new name in all scene prose (whole words and{" "}
-                <span className="font-mono text-xs">@mentions</span>).
+                with the new name in all scene prose (whole-word).
               </span>
             </label>
           ) : null}
           <Field
             name="aliases"
-            label="Aliases for @mentions"
+            label="Aliases"
             hint="Comma-separated nicknames or spellings (e.g. Zoe, Zoë)."
             defaultValue={(character.aliases ?? []).join(", ")}
           />

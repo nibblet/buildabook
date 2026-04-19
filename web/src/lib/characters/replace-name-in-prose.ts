@@ -1,10 +1,8 @@
-import { escapeRegex } from "@/lib/mentions/character-mention-backfill";
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-/**
- * Replace every prose occurrence of `oldName` with `newName` in TipTap HTML.
- * Handles plain words (word-boundary, same rules as mention backfill) and
- * @mentions that use the previous canonical name.
- */
+/** Replace every prose occurrence of `oldName` with `newName` in TipTap HTML (whole-word). */
 export function replaceCharacterNameInHtml(
   html: string,
   oldName: string,
@@ -17,19 +15,8 @@ export function replaceCharacterNameInHtml(
   }
 
   let replacements = 0;
-  let next = html;
-
-  const atRe = new RegExp(`@${escapeRegex(oldTrim)}(?=\\b)`, "gi");
-  next = next.replace(atRe, () => {
-    replacements += 1;
-    return `@${newTrim}`;
-  });
-
-  const plainRe = new RegExp(
-    `(^|[^\\w@])(${escapeRegex(oldTrim)})(?=\\b)`,
-    "gi",
-  );
-  next = next.replace(plainRe, (_m: string, prefix: string) => {
+  const re = new RegExp(`(^|[^\\w])(${escapeRegex(oldTrim)})(?=\\b)`, "gi");
+  const next = html.replace(re, (_m: string, prefix: string) => {
     replacements += 1;
     return `${prefix}${newTrim}`;
   });

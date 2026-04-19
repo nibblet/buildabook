@@ -11,10 +11,6 @@ import {
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { countWords } from "@/lib/utils";
-import {
-  applyMentionBackfill,
-  buildMentionReplacements,
-} from "@/lib/mentions/character-mention-backfill";
 
 export async function createCharacterDraft() {
   const project = await getOrCreateProject();
@@ -155,43 +151,4 @@ export async function deleteCharacter(characterId: string) {
   if (error) throw error;
   revalidatePath("/characters");
   redirect("/characters");
-}
-
-export async function backfillCharacterMentions() {
-  const project = await getOrCreateProject();
-  if (!project) throw new Error("No project.");
-  const supabase = await supabaseServer();
-
-  const [{ data: chars }, { data: chapters }] = await Promise.all([
-    supabase.from("characters").select("name, aliases").eq("project_id", project.id),
-    supabase.from("chapters").select("id").eq("project_id", project.id),
-  ]);
-
-  const replacements = buildMentionReplacements(
-    (chars ?? []) as { name: string; aliases: string[] | null }[],
-  );
-  if (replacements.length === 0) return;
-
-  const chapterIds = (chapters ?? []).map((c) => c.id);
-  if (chapterIds.length === 0) return;
-
-  const { data: scenes } = await supabase
-    .from("scenes")
-    .select("id, content")
-    .in("chapter_id", chapterIds);
-
-  for (const scene of scenes ?? []) {
-    const current = String(scene.content ?? "");
-    if (!current.trim()) continue;
-    const { content, changed } = applyMentionBackfill(current, replacements);
-    if (!changed || content === current) continue;
-    await supabase
-      .from("scenes")
-      .update({ content, updated_at: new Date().toISOString() })
-      .eq("id", scene.id);
-  }
-
-  revalidatePath("/characters");
-  revalidatePath("/spine");
-  revalidatePath("/");
 }

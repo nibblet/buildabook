@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
-import { backfillCharacterMentions, createCharacterDraft } from "./actions";
+import { createCharacterDraft } from "./actions";
 import type { Character } from "@/lib/supabase/types";
 import {
   formatRoleLabel,
@@ -39,8 +39,7 @@ export default async function CharactersPage() {
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Character sheets feed the Partner and inline AI with your cast — role,
             species, wants, voice, and powers — so scenes stay consistent with how you
-            define people. Names also drive @mention continuity counts in drafted
-            scenes.
+            define people.
           </p>
         </div>
         <form action={createCharacterDraft}>
@@ -49,19 +48,6 @@ export default async function CharactersPage() {
           </Button>
         </form>
       </header>
-
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <p className="text-sm text-muted-foreground">
-            Add <span className="font-mono">@character</span> mentions across existing scenes for better continuity tracking.
-          </p>
-          <form action={backfillCharacterMentions}>
-            <Button type="submit" variant="outline" size="sm">
-              Backfill existing scene text
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
 
       {characters.length === 0 ? (
         <Card>

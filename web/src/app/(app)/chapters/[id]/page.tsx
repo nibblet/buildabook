@@ -34,25 +34,34 @@ export default async function ChapterPage({
     .maybeSingle();
   if (!chapter) notFound();
 
-  const [{ data: scenes }, { data: beats }, { data: chars }, { data: allChapters }] =
-    await Promise.all([
-      supabase
-        .from("scenes")
-        .select("*")
-        .eq("chapter_id", id)
-        .order("order_index", { ascending: true }),
-      supabase
-        .from("beats")
-        .select("*")
-        .eq("project_id", project.id)
-        .order("order_index"),
-      supabase.from("characters").select("*").eq("project_id", project.id),
-      supabase
-        .from("chapters")
-        .select("id, title, order_index")
-        .eq("project_id", project.id)
-        .order("order_index", { ascending: true }),
-    ]);
+  const [
+    { data: scenes },
+    { data: beats },
+    { data: chars },
+    { data: allChapters },
+    { data: mentions },
+  ] = await Promise.all([
+    supabase
+      .from("scenes")
+      .select("*")
+      .eq("chapter_id", id)
+      .order("order_index", { ascending: true }),
+    supabase
+      .from("beats")
+      .select("*")
+      .eq("project_id", project.id)
+      .order("order_index"),
+    supabase.from("characters").select("*").eq("project_id", project.id),
+    supabase
+      .from("chapters")
+      .select("id, title, order_index")
+      .eq("project_id", project.id)
+      .order("order_index", { ascending: true }),
+    supabase
+      .from("character_mentions")
+      .select("character_id, mention_count")
+      .eq("chapter_id", id),
+  ]);
 
   const otherChapters = ((allChapters ?? []) as Chapter[])
     .filter((c) => c.id !== id)
@@ -70,6 +79,13 @@ export default async function ChapterPage({
     (s, sc) => s + (sc.wordcount ?? 0),
     0,
   );
+
+  const mentionRows = (mentions ?? []) as { character_id: string; mention_count: number }[];
+  const charById = new Map(((chars ?? []) as Character[]).map((c) => [c.id, c]));
+  const chapterCast = mentionRows
+    .map((m) => ({ character: charById.get(m.character_id), count: m.mention_count }))
+    .filter((x): x is { character: Character; count: number } => Boolean(x.character))
+    .sort((a, b) => b.count - a.count);
 
   const warningsRaw = (chapter as Chapter & { fact_check_warnings?: unknown })
     .fact_check_warnings;
@@ -120,6 +136,26 @@ export default async function ChapterPage({
         chapterId={chapter.id}
         initialWarnings={initialWarnings}
       />
+
+      {chapterCast.length > 0 && (
+        <section className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-medium uppercase tracking-wider text-muted-foreground">
+            Cast
+          </span>
+          {chapterCast.map(({ character, count }) => (
+            <Link
+              key={character.id}
+              href={`/characters/${character.id}`}
+              className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+            >
+              <span>{character.name}</span>
+              <span className="tabular-nums text-muted-foreground/70">
+                {count}
+              </span>
+            </Link>
+          ))}
+        </section>
+      )}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
