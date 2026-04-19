@@ -1,24 +1,23 @@
--- User profiles, badges, and avatar storage for the redesigned Settings page.
+-- Extend existing `profiles` table with fields for the Settings Profile tab,
+-- plus new `user_badges` table and `avatars` storage bucket.
+--
+-- Existing profiles schema (must be preserved):
+--   id uuid NOT NULL primary key  -- = auth.users.id
+--   last_workspace_id uuid
+--   created_at timestamptz NOT NULL
+--   updated_at timestamptz NOT NULL
+--   full_name text
+-- Existing policies: profiles_insert / profiles_select / profiles_update keyed on (id = auth.uid()).
 
--- Profiles -------------------------------------------------------------------
-create table if not exists profiles (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  display_name text,
-  bio text,
-  avatar_url text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+-- Profiles: add new columns + defaults + updated_at trigger ------------------
+alter table profiles add column if not exists bio text;
+alter table profiles add column if not exists avatar_url text;
+alter table profiles alter column created_at set default now();
+alter table profiles alter column updated_at set default now();
 
 drop trigger if exists profiles_updated_at on profiles;
 create trigger profiles_updated_at before update on profiles
   for each row execute function set_updated_at();
-
-alter table profiles enable row level security;
-
-drop policy if exists profiles_owner on profiles;
-create policy profiles_owner on profiles
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- User badges ----------------------------------------------------------------
 -- `badge_id` is a string key owned by application code (see lib/badges.ts).

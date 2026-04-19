@@ -1,8 +1,8 @@
 import { supabaseServer } from "@/lib/supabase/server";
 
 export type Profile = {
-  user_id: string;
-  display_name: string | null;
+  id: string;
+  full_name: string | null;
   bio: string | null;
   avatar_url: string | null;
   created_at: string;
@@ -21,15 +21,16 @@ export async function getOrCreateProfile(): Promise<{
 
   const { data: existing } = await supabase
     .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
+    .select("id, full_name, bio, avatar_url, created_at, updated_at")
+    .eq("id", user.id)
     .maybeSingle();
-  if (existing) return { profile: existing as Profile, email: user.email ?? null };
+  if (existing)
+    return { profile: existing as Profile, email: user.email ?? null };
 
   const { data: created, error } = await supabase
     .from("profiles")
-    .insert({ user_id: user.id })
-    .select("*")
+    .insert({ id: user.id })
+    .select("id, full_name, bio, avatar_url, created_at, updated_at")
     .single();
   if (error) throw error;
   return { profile: created as Profile, email: user.email ?? null };

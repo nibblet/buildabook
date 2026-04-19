@@ -60,7 +60,7 @@ export function ProfileTab({
 }) {
   const router = useRouter();
   const earned = new Set(earnedBadgeIds);
-  const [displayName, setDisplayName] = useState(profile.display_name ?? "");
+  const [displayName, setDisplayName] = useState(profile.full_name ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
@@ -119,8 +119,8 @@ export function ProfileTab({
   }
 
   const headline =
-    displayName.trim() || profile.display_name || email || "Writer";
-  const initials = initialsFrom(profile.display_name, email);
+    displayName.trim() || profile.full_name || email || "Writer";
+  const initials = initialsFrom(profile.full_name, email);
 
   return (
     <div className="space-y-6">

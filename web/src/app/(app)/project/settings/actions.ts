@@ -116,10 +116,10 @@ export async function saveProfile(input: {
   const { error } = await supabase
     .from("profiles")
     .update({
-      display_name: input.displayName.trim() || null,
+      full_name: input.displayName.trim() || null,
       bio: input.bio.trim() || null,
     })
-    .eq("user_id", current.profile.user_id);
+    .eq("id", current.profile.id);
   if (error) throw error;
   revalidatePath("/project/settings");
 }
@@ -139,7 +139,7 @@ export async function uploadAvatar(formData: FormData) {
     throw new Error("Avatar must be under 5MB.");
 
   const supabase = await supabaseServer();
-  const userId = current.profile.user_id;
+  const userId = current.profile.id;
   const ext = (file.name.split(".").pop() || "png").toLowerCase().slice(0, 5);
   const path = `${userId}/avatar-${Date.now()}.${ext}`;
 
@@ -159,7 +159,7 @@ export async function uploadAvatar(formData: FormData) {
   const { error: updateErr } = await supabase
     .from("profiles")
     .update({ avatar_url: publicUrl.publicUrl })
-    .eq("user_id", userId);
+    .eq("id", userId);
   if (updateErr) throw updateErr;
 
   revalidatePath("/project/settings");
@@ -173,7 +173,7 @@ export async function removeAvatar() {
   const { error } = await supabase
     .from("profiles")
     .update({ avatar_url: null })
-    .eq("user_id", current.profile.user_id);
+    .eq("id", current.profile.id);
   if (error) throw error;
   revalidatePath("/project/settings");
   revalidatePath("/");

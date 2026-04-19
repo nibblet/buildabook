@@ -32,9 +32,9 @@ export default async function ProjectSettingsPage() {
   ]);
 
   const newlyEarned = evaluateBadges(stats);
-  const previouslyEarned = await getEarnedBadgeIds(profile.user_id);
+  const previouslyEarned = await getEarnedBadgeIds(profile.id);
   const toAward = newlyEarned.filter((id) => !previouslyEarned.has(id));
-  if (toAward.length) await awardBadges(profile.user_id, toAward);
+  if (toAward.length) await awardBadges(profile.id, toAward);
   const earnedBadgeIds = Array.from(
     new Set([...previouslyEarned, ...newlyEarned]),
   );
