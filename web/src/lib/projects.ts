@@ -1,3 +1,8 @@
+import {
+  newProjectDefaults,
+  shouldSeedPnrBeats,
+  writingProfileFromEnv,
+} from "@/lib/deployment/writing-profile";
 import { supabaseServer } from "@/lib/supabase/server";
 import { PNR_BEATS } from "@/lib/seed/beats";
 import type { Project } from "@/lib/supabase/types";
@@ -12,42 +17,49 @@ export async function getOrCreateProject(): Promise<Project | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  const profile = writingProfileFromEnv();
+
   const { data: existing, error: existingErr } = await supabase
     .from("projects")
     .select("*")
     .eq("user_id", user.id)
+    .eq("writing_profile", profile)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
   if (existingErr) throw existingErr;
   if (existing) return existing as Project;
 
+  const defs = newProjectDefaults(profile);
+
   const { data: created, error } = await supabase
     .from("projects")
     .insert({
       user_id: user.id,
-      title: "Untitled Novella",
-      subgenre: "paranormal_romance",
-      heat_level: "steamy",
-      target_wordcount: 30000,
+      title: defs.title,
+      subgenre: defs.subgenre,
+      heat_level: defs.heat_level,
+      target_wordcount: defs.target_wordcount,
+      writing_profile: profile,
     })
     .select("*")
     .single();
   if (error) throw error;
 
-  // Seed the 11 PNR beats.
-  const beatRows = PNR_BEATS.map((b) => ({
-    project_id: (created as Project).id,
-    order_index: b.order_index,
-    act: b.act,
-    beat_type: b.beat_type,
-    title: b.title,
-    description: b.description,
-    why_it_matters: b.why_it_matters,
-    target_chapter: b.target_chapter,
-  }));
-  const { error: beatsErr } = await supabase.from("beats").insert(beatRows);
-  if (beatsErr) throw beatsErr;
+  if (shouldSeedPnrBeats(profile)) {
+    const beatRows = PNR_BEATS.map((b) => ({
+      project_id: (created as Project).id,
+      order_index: b.order_index,
+      act: b.act,
+      beat_type: b.beat_type,
+      title: b.title,
+      description: b.description,
+      why_it_matters: b.why_it_matters,
+      target_chapter: b.target_chapter,
+    }));
+    const { error: beatsErr } = await supabase.from("beats").insert(beatRows);
+    if (beatsErr) throw beatsErr;
+  }
 
   return created as Project;
 }

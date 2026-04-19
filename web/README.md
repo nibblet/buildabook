@@ -20,7 +20,7 @@ Use a single Supabase project for production data. Run the migration once:
 
 ```bash
 # In Supabase → SQL Editor, run migrations in order, e.g. 0001_init.sql through
-# 0004_app_feedback.sql (feedback notes for Phase 3).
+# 0006_deployment_writing_profile.sql (and any newer files in supabase/migrations/).
 ```
 
 Authentication → URL Configuration:
@@ -37,6 +37,14 @@ cp .env.example .env.local
 # Fill in Supabase + Anthropic values. APP_ALLOWED_EMAILS = her email.
 # APP_ADMIN_EMAILS = Paul's email.
 ```
+
+**Same repo, two URLs, one database:** Point two Vercel projects at this `web/` app. Set **`WRITING_PROFILE`** per deploy (allowed slugs in `web/src/lib/deployment/writing-profile.ts`) so each instance tags new **`projects`** rows and uses matching AI prompts. Use **disjoint `APP_ALLOWED_EMAILS`** per URL. Register each origin’s `/auth/callback` under Supabase → Redirect URLs. Apply migration `0006_deployment_writing_profile.sql` (or newer) once.
+
+| Variable per deploy | Role |
+|---|---|
+| `WRITING_PROFILE` | Genre slice + defaults for new projects |
+| `APP_ALLOWED_EMAILS` | Disjoint allowlists recommended |
+| `NEXT_PUBLIC_APP_URL` | That deploy’s canonical URL |
 
 ### 3. Install & run
 

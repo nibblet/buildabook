@@ -1,6 +1,7 @@
 /**
  * CLI backfill using service role. From web/: npx tsx scripts/backfill-character-mentions.ts
- * env: PROJECT_ID optional
+ * env: PROJECT_ID optional — limit to one project by id
+ * env: WRITING_PROFILE optional — when set without PROJECT_ID, only projects with this profile (matches deploy)
  */
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -71,7 +72,11 @@ async function main() {
     return;
   }
 
-  const { data: projects, error } = await supabase.from("projects").select("id");
+  let projQuery = supabase.from("projects").select("id");
+  const profile = process.env.WRITING_PROFILE?.trim();
+  if (profile) projQuery = projQuery.eq("writing_profile", profile);
+
+  const { data: projects, error } = await projQuery;
   if (error) throw error;
 
   let total = 0;

@@ -536,6 +536,12 @@ Before The Partner runs, RAG query over `scene_chunks` (top 5 by cosine similari
 
 Before The Partner runs, select the style sample whose label best matches the current scene (e.g. an "intimate" scene pulls the intimate sample). Injected into the voice block.
 
+### 11.6 `@character` mentions
+
+In TipTap scene prose, `@Name` mention syntax is first-class. The editor provides quick insert for cast members and stores mentions inline so continuity tools can resolve the exact character reference without guessing.
+
+For migration safety, add a one-time "Backfill existing scene text" action that rewrites plain-name matches to `@Name` where possible. Keep this author-initiated, reviewable, and idempotent.
+
 ---
 
 ## 12. Import-first onboarding
@@ -770,13 +776,14 @@ Each phase deploys a working app. Phase 0 ships in days.
 - Scene-level POV/beat tags (optional comment-marker syntax)
 - Freeform canvas escape route
 - "Name your team" onboarding step (optional; offered after 5 writing sessions)
+- **Arc Tracker** (hidden-nature reveals; reader knowledge vs character knowledge by scene/chapter)
+- **Revision / diff mode** with AI-assisted edit suggestions + restore points
+- Explicit `@character` mentions in editor + one-click backfill for existing prose
 
 **Deploy target:** complete v3 at end of Week 5.
 
 ### Later (post-novella)
 
-- Arc Tracker (hidden-nature reveals, what reader knows vs. what character knows per chapter)
-- Revision / diff mode with AI-suggested line edits
 - Visual character/relationship graph
 - Multi-project support (book 2)
 - Optional structured world-builder wizard (for future users who prefer it)

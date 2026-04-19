@@ -21,25 +21,44 @@ import { deleteCharacter, updateCharacter } from "../actions";
 export function CharacterForm({ character }: { character: Character }) {
   const router = useRouter();
   const [, start] = useTransition();
+  const [nameValue, setNameValue] = useState(character.name);
+  const [lastProseNote, setLastProseNote] = useState<string | null>(null);
+
+  const nameChangedFromSaved =
+    nameValue.trim() !== character.name.trim();
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     start(async () => {
-      await updateCharacter(character.id, {
-        name: String(fd.get("name") || "").trim() || "Untitled",
-        aliases: commaList(fd.get("aliases")),
-        role: mergePresetOrCustom(fd, "role_preset", "role_custom"),
-        species: mergePresetOrCustom(fd, "species_preset", "species_custom"),
-        archetype: emptyToNull(fd.get("archetype")),
-        appearance: emptyToNull(fd.get("appearance")),
-        backstory: emptyToNull(fd.get("backstory")),
-        wound: emptyToNull(fd.get("wound")),
-        desire: emptyToNull(fd.get("desire")),
-        need: emptyToNull(fd.get("need")),
-        voice_notes: emptyToNull(fd.get("voice_notes")),
-        powers: emptyToNull(fd.get("powers")),
-      });
+      setLastProseNote(null);
+      const savedName = String(fd.get("name") || "").trim() || "Untitled";
+      const replaceInProse = fd.get("replace_name_in_prose") === "on";
+      const { proseScenesUpdated, proseReplacements } = await updateCharacter(
+        character.id,
+        {
+          name: savedName,
+          aliases: commaList(fd.get("aliases")),
+          role: mergePresetOrCustom(fd, "role_preset", "role_custom"),
+          species: mergePresetOrCustom(fd, "species_preset", "species_custom"),
+          archetype: emptyToNull(fd.get("archetype")),
+          appearance: emptyToNull(fd.get("appearance")),
+          backstory: emptyToNull(fd.get("backstory")),
+          wound: emptyToNull(fd.get("wound")),
+          desire: emptyToNull(fd.get("desire")),
+          need: emptyToNull(fd.get("need")),
+          voice_notes: emptyToNull(fd.get("voice_notes")),
+          powers: emptyToNull(fd.get("powers")),
+        },
+        { replaceNameInProse: replaceInProse },
+      );
+      setNameValue(savedName);
+      if (proseScenesUpdated > 0) {
+        const prior = character.name.trim() || "the previous name";
+        setLastProseNote(
+          `Updated “${prior}” in ${proseScenesUpdated} scene${proseScenesUpdated === 1 ? "" : "s"} (${proseReplacements} replacement${proseReplacements === 1 ? "" : "s"}).`,
+        );
+      }
       router.refresh();
     });
   }
@@ -60,12 +79,33 @@ export function CharacterForm({ character }: { character: Character }) {
     <form className="space-y-6" onSubmit={submit}>
       <Card>
         <CardContent className="grid gap-4 pt-6">
-          <Field
-            name="name"
-            label="Name"
-            required
-            defaultValue={character.name}
-          />
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Name</Label>
+            <Input
+              name="name"
+              required
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          {nameChangedFromSaved ? (
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-muted/30 px-3 py-3 text-sm leading-snug">
+              <input
+                type="checkbox"
+                name="replace_name_in_prose"
+                className="mt-0.5 size-4 shrink-0 rounded border-input accent-primary"
+              />
+              <span>
+                Also replace{" "}
+                <span className="font-medium text-foreground">
+                  “{character.name.trim() || "this name"}”
+                </span>{" "}
+                with the new name in all scene prose (whole words and{" "}
+                <span className="font-mono text-xs">@mentions</span>).
+              </span>
+            </label>
+          ) : null}
           <Field
             name="aliases"
             label="Aliases for @mentions"
@@ -119,6 +159,10 @@ export function CharacterForm({ character }: { character: Character }) {
           <Area name="powers" label="Powers / rules" rows={3} defaultValue={character.powers ?? ""} />
         </CardContent>
       </Card>
+
+      {lastProseNote ? (
+        <p className="text-sm text-muted-foreground">{lastProseNote}</p>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Link

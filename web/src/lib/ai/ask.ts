@@ -1,7 +1,8 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase/server";
-import { PERSONAS } from "@/lib/ai/personas";
+import { type CorePersonaKey, getPersonas } from "@/lib/ai/personas";
+import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { askClaude, resolveModelKey } from "@/lib/ai/claude";
 import { buildContext } from "@/lib/ai/context";
 import { retrieveRagContinuity } from "@/lib/ai/rag";
@@ -17,7 +18,7 @@ import type {
 } from "@/lib/supabase/types";
 
 type AskInput = {
-  personaKey: keyof typeof PERSONAS;
+  personaKey: CorePersonaKey;
   userPrompt: string;
   sceneId?: string | null;
   chapterId?: string | null;
@@ -33,7 +34,8 @@ export async function askPersona(input: AskInput): Promise<{
     const project = await getOrCreateProject();
     if (!project) return { ok: false, error: "No project." };
 
-    const persona = PERSONAS[input.personaKey];
+    const personas = getPersonas(parseWritingProfile(project.writing_profile));
+    const persona = personas[input.personaKey];
     if (!persona) return { ok: false, error: "Unknown persona." };
 
     const supabase = await supabaseServer();

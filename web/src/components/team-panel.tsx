@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   Sparkles,
   MessageCircle,
@@ -15,10 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Chip } from "@/components/ui/chip";
-import { PERSONAS } from "@/lib/ai/personas";
+import { type CorePersonaKey, getPersonas } from "@/lib/ai/personas";
 import { askPersona } from "@/lib/ai/ask";
+import type { WritingProfileId } from "@/lib/deployment/writing-profile";
 
-const ALL_PERSONA_KEYS: (keyof typeof PERSONAS)[] = [
+const ALL_PERSONA_KEYS: CorePersonaKey[] = [
   "partner",
   "profiler",
   "specialist",
@@ -26,7 +27,7 @@ const ALL_PERSONA_KEYS: (keyof typeof PERSONAS)[] = [
   "analyst",
 ];
 
-const ICONS: Record<keyof typeof PERSONAS, typeof Sparkles> = {
+const ICONS: Record<CorePersonaKey, typeof Sparkles> = {
   partner: Sparkles,
   profiler: MessageCircle,
   specialist: BookOpen,
@@ -55,6 +56,7 @@ function tryParseProofreader(text: string): ProofreaderResult | null {
 }
 
 export function TeamPanel({
+  writingProfile,
   sceneId,
   chapterId,
   beatId,
@@ -62,6 +64,7 @@ export function TeamPanel({
   onInsertProse,
   quickPrompts,
 }: {
+  writingProfile: WritingProfileId;
   sceneId?: string | null;
   chapterId?: string | null;
   beatId?: string | null;
@@ -69,8 +72,9 @@ export function TeamPanel({
   onInsertProse?: (text: string) => void;
   quickPrompts?: Record<string, string[]>;
 }) {
-  const [activeKey, setActiveKey] =
-    useState<keyof typeof PERSONAS>("partner");
+  const personas = useMemo(() => getPersonas(writingProfile), [writingProfile]);
+
+  const [activeKey, setActiveKey] = useState<CorePersonaKey>("partner");
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [proofParts, setProofParts] = useState<ProofreaderResult | null>(null);
@@ -78,7 +82,7 @@ export function TeamPanel({
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
 
-  const active = PERSONAS[activeKey];
+  const active = personas[activeKey];
   const label = aliases?.[activeKey] || active.label;
   const ActiveIcon = ICONS[activeKey];
 
@@ -122,7 +126,9 @@ export function TeamPanel({
     setTimeout(() => setCopied(false), 1200);
   }
 
-  const quicks = quickPrompts?.[activeKey] ?? defaultQuickPrompts(activeKey);
+  const quicks =
+    quickPrompts?.[activeKey] ??
+    defaultQuickPrompts(writingProfile, activeKey);
 
   const showInsertPartner =
     activeKey === "partner" && onInsertProse && response && !proofParts;
@@ -135,7 +141,7 @@ export function TeamPanel({
         <div className="label-eyebrow mb-2">Your team</div>
         <div className="flex flex-wrap gap-1.5">
           {ALL_PERSONA_KEYS.map((k) => {
-            const p = PERSONAS[k];
+            const p = personas[k];
             const alias = aliases?.[k] || p.label;
             const Ico = ICONS[k];
             return (
@@ -288,7 +294,10 @@ export function TeamPanel({
   );
 }
 
-function defaultQuickPrompts(key: keyof typeof PERSONAS): string[] {
+function defaultQuickPrompts(
+  writingProfile: WritingProfileId,
+  key: CorePersonaKey,
+): string[] {
   switch (key) {
     case "partner":
       return [
@@ -305,11 +314,17 @@ function defaultQuickPrompts(key: keyof typeof PERSONAS): string[] {
         "What is this scene really about?",
       ];
     case "specialist":
-      return [
-        "Is this beat normal for PNR?",
-        "What would readers expect next?",
-        "Heat level vs tone — thoughts?",
-      ];
+      return writingProfile === "erotic_mature"
+        ? [
+            "Is this beat hitting for erotic romance readers?",
+            "What would readers expect next?",
+            "Heat level vs emotional beat — thoughts?",
+          ]
+        : [
+            "Is this beat normal for PNR?",
+            "What would readers expect next?",
+            "Heat level vs tone — thoughts?",
+          ];
     case "proofreader":
       return ["Proofread my last paragraph", "Check tense consistency"];
     case "analyst":

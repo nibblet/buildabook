@@ -1,3 +1,4 @@
+import { parseWritingProfile, writingProfilePrompts } from "@/lib/deployment/writing-profile";
 import type {
   Beat,
   Character,
@@ -64,8 +65,11 @@ export function buildContext(bundle: ContextBundle): string {
 
   const sampleForScope = pickStyleSample(styleSamples, currentScene);
 
+  const wp = parseWritingProfile(project.writing_profile);
+  const missionLine = writingProfilePrompts(wp).missionLine;
+
   const lines: string[] = [];
-  lines.push("You are helping an author write a paranormal romance novella.");
+  lines.push(missionLine);
   lines.push("");
   lines.push("PROJECT");
   lines.push(`- Title: ${project.title}`);

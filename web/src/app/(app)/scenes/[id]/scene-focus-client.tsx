@@ -21,6 +21,10 @@ import {
 import { cn, formatNumber } from "@/lib/utils";
 import { stripHtml } from "@/lib/html";
 import { idsMatchingMentionsInText } from "@/lib/mentions/character-mention-backfill";
+import {
+  type WritingProfileId,
+  parseWritingProfile,
+} from "@/lib/deployment/writing-profile";
 import type {
   Beat,
   Chapter,
@@ -56,6 +60,7 @@ export function SceneFocusClient({
   const router = useRouter();
   const editorRef = useRef<ProseEditorHandle>(null);
   const { focusMode, toggle: toggleFocus } = useFocusMode();
+  const writingProfile = parseWritingProfile(project.writing_profile);
 
   const [title, setTitle] = useState(scene.title ?? "");
   const [goal, setGoal] = useState(scene.goal ?? "");
@@ -504,6 +509,7 @@ export function SceneFocusClient({
       {!focusMode && (
         <aside className="min-h-0 overflow-y-auto border-t bg-card/60 p-4 backdrop-blur-sm md:border-t-0">
           <TeamPanel
+            writingProfile={writingProfile}
             sceneId={scene.id}
             chapterId={chapter.id}
             aliases={project.persona_aliases}
@@ -517,6 +523,7 @@ export function SceneFocusClient({
       {/* Floating team reopener in focus mode */}
       {focusMode && (
         <FloatingTeamReopener
+          writingProfile={writingProfile}
           sceneId={scene.id}
           chapterId={chapter.id}
           aliases={project.persona_aliases}
@@ -528,11 +535,13 @@ export function SceneFocusClient({
 }
 
 function FloatingTeamReopener({
+  writingProfile,
   sceneId,
   chapterId,
   aliases,
   onInsertProse,
 }: {
+  writingProfile: WritingProfileId;
   sceneId: string;
   chapterId: string;
   aliases: Project["persona_aliases"];
@@ -545,6 +554,7 @@ function FloatingTeamReopener({
       {open && (
         <div className="w-80 rounded-xl border bg-card/95 p-4 shadow-lg backdrop-blur-sm">
           <TeamPanel
+            writingProfile={writingProfile}
             sceneId={sceneId}
             chapterId={chapterId}
             aliases={aliases}

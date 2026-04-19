@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { extractDraft, type ExtractedDraftT } from "@/lib/ai/extract";
+import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { countWords } from "@/lib/utils";
 import type { Beat } from "@/lib/supabase/types";
 
@@ -17,7 +18,10 @@ export async function runExtraction(draftText: string): Promise<{
   try {
     const project = await getOrCreateProject();
     if (!project) return { ok: false, error: "No active project." };
-    const data = await extractDraft(draftText, { projectId: project.id });
+    const data = await extractDraft(draftText, {
+      projectId: project.id,
+      writingProfile: parseWritingProfile(project.writing_profile),
+    });
     return { ok: true, data };
   } catch (err) {
     console.error("runExtraction failed:", err);

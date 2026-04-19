@@ -21,6 +21,8 @@ export type Project = {
   target_wordcount: number;
   style_notes: string | null;
   persona_aliases: Record<string, string>;
+  /** Which deploy / product slice created this row; must match server WRITING_PROFILE. */
+  writing_profile: string;
   created_at: string;
   updated_at: string;
 };

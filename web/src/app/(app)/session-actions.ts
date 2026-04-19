@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { askClaude, resolveModelKey } from "@/lib/ai/claude";
-import { PERSONAS } from "@/lib/ai/personas";
+import { getPersonas } from "@/lib/ai/personas";
+import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { env } from "@/lib/env";
 import { getOrCreateProject } from "@/lib/projects";
 import { loadSpine, pickCurrentScene, type SpineData } from "@/lib/spine";
@@ -73,7 +74,8 @@ export async function wrapWritingSession(writerNoteRaw: string) {
   if (apiKey) {
     try {
       const user = buildWrapPrompt(spine, scene);
-      const profiler = PERSONAS.profiler;
+      const profiler = getPersonas(parseWritingProfile(project.writing_profile))
+        .profiler;
       const result = await askClaude({
         persona: "profiler",
         system: `${profiler.directive}\n\nFor THIS task only: ignore questions. Reply with exactly two sentences in past tense. Summarize what the writer worked on this session and where the story stands (scene goal/tension). No headings, bullets, or greeting.`,

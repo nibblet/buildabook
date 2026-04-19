@@ -1,3 +1,5 @@
+import { writingProfileFromEnv } from "@/lib/deployment/writing-profile";
+
 const required = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -34,6 +36,9 @@ export const env = {
   supabaseUrl: () => get("NEXT_PUBLIC_SUPABASE_URL"),
   supabaseAnonKey: () => get("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
   supabaseServiceRoleKey: () => optional("SUPABASE_SERVICE_ROLE_KEY"),
+
+  /** Deployment slice for prompts + project rows (server-only). Defaults to pnr_dawn locally. */
+  writingProfile: () => writingProfileFromEnv(),
 
   anthropicApiKey: () => optional("ANTHROPIC_API_KEY"),
 

@@ -1,6 +1,7 @@
 "use server";
 
-import { PERSONAS } from "@/lib/ai/personas";
+import { getPersonas } from "@/lib/ai/personas";
+import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { askClaude, resolveModelKey } from "@/lib/ai/claude";
 import { buildContext } from "@/lib/ai/context";
 import { retrieveRagContinuity } from "@/lib/ai/rag";
@@ -135,7 +136,8 @@ export async function runInlineAssist(input: {
       ragContinuity,
     });
 
-    const persona = PERSONAS.partner;
+    const persona = getPersonas(parseWritingProfile(project.writing_profile))
+      .partner;
     const directive = `\n\n---\n\n${MODE_PROMPTS[input.mode]}`;
     const user = `SELECTION TO REVISE (quoted for clarity — do not include these quote marks in your output):\n"""\n${trimmed}\n"""`;
 

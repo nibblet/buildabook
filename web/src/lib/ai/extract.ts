@@ -1,5 +1,10 @@
 import { jsonrepair } from "jsonrepair";
 import { z } from "zod";
+import {
+  type WritingProfileId,
+  parseWritingProfile,
+  writingProfilePrompts,
+} from "@/lib/deployment/writing-profile";
 import { askClaude, resolveModelKey } from "@/lib/ai/claude";
 import {
   promptRoleAlternatives,
@@ -81,11 +86,14 @@ export type ExtractedDraftT = Omit<
   scenes: z.infer<typeof ExtractedScene>[];
 };
 
-const EXTRACT_SYSTEM = `You are an expert paranormal-romance developmental editor. Your job is to read a chapter or draft the author has written and extract the structural facts needed to set up a writing studio for her book.
+function extractSystemPrompt(writingProfile: WritingProfileId): string {
+  const desc = writingProfilePrompts(writingProfile).extractEditorDescription;
+  return `You are an ${desc}. Your job is to read a chapter or draft the author has written and extract the structural facts needed to set up a writing studio for her book.
 
 Be thorough but grounded. Only include items that the text supports. Every world element must have evidence in the prose; every character must actually appear or be clearly referenced. Do not invent tropes the text does not hint at.
 
 You must return ONLY valid JSON: one top-level object, double-quoted keys, no trailing commas, no markdown fences, no commentary before or after. Do NOT put large blocks of story prose inside any string — the user message lists numbered paragraphs; reference them by index only (see schema).`;
+}
 
 const BEAT_TYPES = [
   "ordinary_world",
@@ -263,7 +271,11 @@ function extractJson(text: string): unknown {
 
 export async function extractDraft(
   draftText: string,
-  opts?: { projectId?: string | null },
+  opts?: {
+    projectId?: string | null;
+    /** Defaults to paranormal-romance editor when omitted */
+    writingProfile?: WritingProfileId | null;
+  },
 ): Promise<ExtractedDraftT> {
   if (!draftText.trim()) {
     throw new Error("Draft text is empty.");
@@ -274,10 +286,12 @@ export async function extractDraft(
     throw new Error("Draft has no paragraphs after splitting.");
   }
 
+  const wp = parseWritingProfile(opts?.writingProfile ?? undefined);
+
   const model = resolveModelKey("prose");
   const { text } = await askClaude({
     persona: "extract",
-    system: EXTRACT_SYSTEM,
+    system: extractSystemPrompt(wp),
     user: extractUserPromptFromParagraphs(paragraphs),
     model,
     temperature: 0.2,
