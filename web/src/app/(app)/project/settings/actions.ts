@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
+import { getOrCreateProfile } from "@/lib/profiles";
 
 type Input = {
   title: string;
@@ -103,4 +104,77 @@ export async function deleteStyleSample(sampleId: string) {
     .eq("project_id", project.id);
   if (error) throw error;
   revalidatePath("/project/settings");
+}
+
+export async function saveProfile(input: {
+  displayName: string;
+  bio: string;
+}) {
+  const current = await getOrCreateProfile();
+  if (!current) throw new Error("Not signed in.");
+  const supabase = await supabaseServer();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      display_name: input.displayName.trim() || null,
+      bio: input.bio.trim() || null,
+    })
+    .eq("user_id", current.profile.user_id);
+  if (error) throw error;
+  revalidatePath("/project/settings");
+}
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const AVATAR_MIME_PREFIX = "image/";
+
+export async function uploadAvatar(formData: FormData) {
+  const current = await getOrCreateProfile();
+  if (!current) throw new Error("Not signed in.");
+  const file = formData.get("avatar");
+  if (!(file instanceof File) || file.size === 0)
+    throw new Error("No file provided.");
+  if (!file.type.startsWith(AVATAR_MIME_PREFIX))
+    throw new Error("Avatar must be an image.");
+  if (file.size > AVATAR_MAX_BYTES)
+    throw new Error("Avatar must be under 5MB.");
+
+  const supabase = await supabaseServer();
+  const userId = current.profile.user_id;
+  const ext = (file.name.split(".").pop() || "png").toLowerCase().slice(0, 5);
+  const path = `${userId}/avatar-${Date.now()}.${ext}`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from("avatars")
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type,
+      cacheControl: "3600",
+    });
+  if (uploadErr) throw uploadErr;
+
+  const { data: publicUrl } = supabase.storage
+    .from("avatars")
+    .getPublicUrl(path);
+
+  const { error: updateErr } = await supabase
+    .from("profiles")
+    .update({ avatar_url: publicUrl.publicUrl })
+    .eq("user_id", userId);
+  if (updateErr) throw updateErr;
+
+  revalidatePath("/project/settings");
+  revalidatePath("/");
+}
+
+export async function removeAvatar() {
+  const current = await getOrCreateProfile();
+  if (!current) throw new Error("Not signed in.");
+  const supabase = await supabaseServer();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_url: null })
+    .eq("user_id", current.profile.user_id);
+  if (error) throw error;
+  revalidatePath("/project/settings");
+  revalidatePath("/");
 }

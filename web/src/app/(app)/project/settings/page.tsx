@@ -3,22 +3,44 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { getOrCreateProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
-import { SettingsForm } from "./settings-form";
+import { evaluateBadges } from "@/lib/badges";
+import {
+  awardBadges,
+  getEarnedBadgeIds,
+  getOrCreateProfile,
+} from "@/lib/profiles";
+import { getWriterStats } from "@/lib/writer-stats";
+import { SettingsTabs } from "./settings-tabs";
 import type { StyleSample } from "@/lib/supabase/types";
 
 export default async function ProjectSettingsPage() {
   const project = await getOrCreateProject();
   if (!project) redirect("/login");
 
+  const profileResult = await getOrCreateProfile();
+  if (!profileResult) redirect("/login");
+  const { profile, email } = profileResult;
+
   const supabase = await supabaseServer();
-  const { data: samples } = await supabase
-    .from("style_samples")
-    .select("*")
-    .eq("project_id", project.id)
-    .order("created_at", { ascending: true });
+  const [{ data: samples }, stats] = await Promise.all([
+    supabase
+      .from("style_samples")
+      .select("*")
+      .eq("project_id", project.id)
+      .order("created_at", { ascending: true }),
+    getWriterStats(project.id),
+  ]);
+
+  const newlyEarned = evaluateBadges(stats);
+  const previouslyEarned = await getEarnedBadgeIds(profile.user_id);
+  const toAward = newlyEarned.filter((id) => !previouslyEarned.has(id));
+  if (toAward.length) await awardBadges(profile.user_id, toAward);
+  const earnedBadgeIds = Array.from(
+    new Set([...previouslyEarned, ...newlyEarned]),
+  );
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6 md:p-8">
+    <div className="mx-auto max-w-3xl space-y-6 p-6 md:p-8">
       <div>
         <Link
           href="/"
@@ -33,7 +55,11 @@ export default async function ProjectSettingsPage() {
           Settings
         </h1>
       </div>
-      <SettingsForm
+      <SettingsTabs
+        profile={profile}
+        email={email}
+        stats={stats}
+        earnedBadgeIds={earnedBadgeIds}
         project={project}
         styleSamples={(samples ?? []) as StyleSample[]}
       />
