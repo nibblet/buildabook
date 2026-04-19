@@ -1,3 +1,4 @@
+import { extractContinuity } from "@/lib/ai/continuity/extract";
 import { maybeProposeRelationshipBeat } from "@/lib/ai/relationship-beat-proposal";
 import { rebuildSceneChunks } from "@/lib/ai/scene-chunks";
 import {
@@ -23,6 +24,7 @@ export function firePostSaveScenePipeline(sceneId: string): void {
       await recountChapterCharacterMentions(chapterId);
       await recountChapterElementMentions(chapterId);
       await maybeProposeRelationshipBeat(sceneId);
+      await extractContinuity(sceneId);
     } catch (e) {
       console.error("post-save scene pipeline:", e);
     }

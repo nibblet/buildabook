@@ -45,6 +45,15 @@ export default async function CharacterDetailPage({
           your voice and project settings — fuller sheets reduce inconsistency when you
           ask for rewrites or continuations.
         </p>
+        <p className="mt-2 text-sm">
+          <Link
+            href={`/characters/${id}/codex`}
+            className="text-foreground underline-offset-4 hover:underline"
+          >
+            View continuity codex
+          </Link>{" "}
+          <span className="text-muted-foreground">(auto-extracted from scenes)</span>
+        </p>
       </header>
 
       <CharacterForm key={id} character={data as Character} />

@@ -8,7 +8,8 @@ export type PersonaKey =
   | "proofreader"
   | "analyst"
   | "extract"
-  | "factcheck";
+  | "factcheck"
+  | "continuity_editor";
 
 export type Project = {
   id: string;
@@ -23,6 +24,8 @@ export type Project = {
   persona_aliases: Record<string, string>;
   /** Which deploy / product slice created this row; must match server WRITING_PROFILE. */
   writing_profile: string;
+  /** Gutter / inline Continuity Editor sensitivity. */
+  continuity_dial?: "quiet" | "helpful" | "vigilant";
   created_at: string;
   updated_at: string;
 };
@@ -91,6 +94,49 @@ export type Scene = {
   wordcount: number;
   status: "planned" | "drafting" | "done";
   updated_at: string;
+  /** SHA-256 of normalized scene text; used to skip re-extraction. */
+  continuity_content_hash?: string | null;
+  continuity_extracted_at?: string | null;
+  continuity_extractor_version?: number | null;
+};
+
+export type ContinuityClaim = {
+  id: string;
+  project_id: string;
+  source_scene_id: string;
+  source_paragraph_start: number;
+  source_paragraph_end: number;
+  kind: string;
+  subject_type: string;
+  subject_label: string;
+  subject_character_id: string | null;
+  subject_world_element_id: string | null;
+  subject_relationship_id: string | null;
+  predicate: string;
+  object_text: string;
+  confidence: "low" | "medium" | "high";
+  status: "auto" | "confirmed" | "rejected" | "superseded";
+  superseded_by: string | null;
+  tier: "A" | "B" | "C" | null;
+  extractor_version: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContinuityAnnotation = {
+  id: string;
+  project_id: string;
+  scene_id: string;
+  paragraph_index: number;
+  tier: "A" | "B" | "C";
+  kind: string;
+  summary: string;
+  detail: string | null;
+  claim_ids: string[];
+  conflicting_claim_ids: string[];
+  status: "pending" | "shown" | "dismissed" | "resolved";
+  dismissed_session_id: string | null;
+  created_at: string;
 };
 
 export type SceneCharacterArc = {

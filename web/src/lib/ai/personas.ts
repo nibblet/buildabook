@@ -5,7 +5,10 @@ import {
   writingProfilePrompts,
 } from "@/lib/deployment/writing-profile";
 
-export type CorePersonaKey = Exclude<PersonaKey, "extract" | "factcheck">;
+export type CorePersonaKey = Exclude<
+  PersonaKey,
+  "extract" | "factcheck" | "continuity_editor"
+>;
 
 export type PersonaConfig = {
   key: PersonaKey;
@@ -95,6 +98,7 @@ export function personaLabel(
 ): string {
   const alias = aliases?.[key];
   if (alias && alias.trim()) return alias;
+  if (key === "continuity_editor") return "Continuity Editor";
   if (key === "extract" || key === "factcheck") return key;
   const wp = parseWritingProfile(writingProfileRaw);
   const personas = getPersonas(wp);

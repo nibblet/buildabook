@@ -27,6 +27,8 @@ export type ContextBundle = {
   priorSceneSummary?: string | null;
   /** Phase 2: vector-retrieved snippets from earlier scenes */
   ragContinuity?: string | null;
+  /** Extracted continuity claims (confirmed vs tentative). */
+  continuityFacts?: string | null;
 };
 
 function compactCharacter(c: Character): string {
@@ -60,6 +62,7 @@ export function buildContext(bundle: ContextBundle): string {
     currentScene,
     priorSceneSummary,
     ragContinuity,
+    continuityFacts,
   } = bundle;
 
   const defaultStyle =
@@ -131,6 +134,11 @@ export function buildContext(bundle: ContextBundle): string {
     if (currentScene.goal) lines.push(`Goal: ${currentScene.goal}`);
     if (currentScene.conflict) lines.push(`Conflict: ${currentScene.conflict}`);
     if (currentScene.outcome) lines.push(`Planned outcome: ${currentScene.outcome}`);
+    lines.push("");
+  }
+
+  if (continuityFacts?.trim()) {
+    lines.push(continuityFacts.trim());
     lines.push("");
   }
 

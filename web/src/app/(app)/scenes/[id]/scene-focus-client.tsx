@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Chip } from "@/components/ui/chip";
+import type { ContinuityDial } from "@/lib/ai/continuity/dial";
 import { ProseEditor, type ProseEditorHandle } from "@/components/prose-editor";
 import { TeamPanel } from "@/components/team-panel";
 import {
@@ -61,6 +62,8 @@ export function SceneFocusClient({
   const editorRef = useRef<ProseEditorHandle>(null);
   const { focusMode, toggle: toggleFocus } = useFocusMode();
   const writingProfile = parseWritingProfile(project.writing_profile);
+  const continuityDial: ContinuityDial =
+    project.continuity_dial ?? "helpful";
 
   const [title, setTitle] = useState(scene.title ?? "");
   const [goal, setGoal] = useState(scene.goal ?? "");
@@ -69,6 +72,7 @@ export function SceneFocusClient({
   const [wordcount, setWordcount] = useState(scene.wordcount ?? 0);
   const [contentHtml, setContentHtml] = useState(scene.content ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [continuityRefreshKey, setContinuityRefreshKey] = useState(0);
   const [beatIds, setBeatIds] = useState<string[]>(scene.beat_ids ?? []);
   const [mentionQuery, setMentionQuery] = useState("");
   const [selectedRevisionId, setSelectedRevisionId] = useState(revisions[0]?.id ?? "");
@@ -120,6 +124,7 @@ export function SceneFocusClient({
       try {
         await saveSceneContent(scene.id, html, words);
         setSaveState("saved");
+        setContinuityRefreshKey((k) => k + 1);
       } catch {
         setSaveState("error");
       }
@@ -357,6 +362,9 @@ export function SceneFocusClient({
             sceneId={scene.id}
             chapterId={chapter.id}
             enableInlineAssist
+            enableContinuityGutter
+            continuityDial={continuityDial}
+            continuityRefreshKey={continuityRefreshKey}
             initialContent={scene.content ?? ""}
             placeholder="Start writing…"
             autofocus

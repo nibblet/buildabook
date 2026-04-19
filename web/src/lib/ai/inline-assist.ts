@@ -7,6 +7,8 @@ import {
 } from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { buildContext } from "@/lib/ai/context";
+import { fetchContinuityFactsForScene } from "@/lib/ai/continuity/context-block";
+import { env } from "@/lib/env";
 import { retrieveRagContinuity } from "@/lib/ai/rag";
 import { getOrCreateProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -126,6 +128,15 @@ export async function runInlineAssist(input: {
       }
     }
 
+    let continuityFacts: string | null = null;
+    if (input.sceneId && env.continuityEditorEnabled()) {
+      continuityFacts = await fetchContinuityFactsForScene(
+        supabase,
+        project.id,
+        currentScene?.content ?? null,
+      );
+    }
+
     const base = buildContext({
       project: project as Project,
       tropes: (tropes ?? []).map((t) => t.trope),
@@ -137,6 +148,7 @@ export async function runInlineAssist(input: {
       currentChapterTitle,
       currentScene,
       ragContinuity,
+      continuityFacts,
     });
 
     const persona = getPersonas(parseWritingProfile(project.writing_profile))

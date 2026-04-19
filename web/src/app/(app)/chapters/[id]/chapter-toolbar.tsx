@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,11 @@ export function ChapterChapterToolbar({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="secondary" asChild>
+            <Link href={`/chapters/${chapterId}/codex-review`}>
+              Review codex
+            </Link>
+          </Button>
           <Button type="button" size="sm" variant="secondary" onClick={factCheck}>
             Run continuity check
           </Button>

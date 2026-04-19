@@ -8,7 +8,6 @@ import {
   useEffect,
   useImperativeHandle,
   forwardRef,
-  useState,
   useTransition,
 } from "react";
 import { Loader2 } from "lucide-react";
@@ -18,6 +17,8 @@ import {
   runInlineAssist,
   type InlineAssistMode,
 } from "@/lib/ai/inline-assist";
+import { ContinuityGutter } from "@/components/continuity-gutter";
+import type { ContinuityDial } from "@/lib/ai/continuity/dial";
 
 export type ProseEditorHandle = {
   insertAtCursor: (text: string) => void;
@@ -38,6 +39,9 @@ type Props = {
   sceneId?: string | null;
   chapterId?: string | null;
   enableInlineAssist?: boolean;
+  enableContinuityGutter?: boolean;
+  continuityDial?: ContinuityDial;
+  continuityRefreshKey?: number;
 };
 
 const INLINE_ACTIONS: { mode: InlineAssistMode; label: string }[] = [
@@ -59,6 +63,9 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       sceneId,
       chapterId,
       enableInlineAssist,
+      enableContinuityGutter,
+      continuityDial,
+      continuityRefreshKey,
     },
     ref,
   ) {
@@ -141,39 +148,54 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
     const showBubble =
       !!editor && !!enableInlineAssist && !!sceneId;
 
+    const showContinuity =
+      !!editor &&
+      !!enableContinuityGutter &&
+      !!sceneId;
+
     return (
-      <div className="relative">
-        <EditorContent editor={editor} className={cn(className)} />
-        {showBubble && editor ? (
-          <BubbleMenuPrimitive
+      <div className="relative flex w-full min-w-0 gap-0">
+        {showContinuity ? (
+          <ContinuityGutter
             editor={editor}
-            shouldShow={({ editor: ed }) =>
-              !ed.state.selection.empty &&
-              ed.state.selection.from !== ed.state.selection.to
-            }
-          >
-            <div className="flex flex-wrap gap-1 rounded-md border bg-popover p-1 shadow-md">
-              {assistPending ? (
-                <span className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Working…
-                </span>
-              ) : (
-                INLINE_ACTIONS.map(({ mode, label }) => (
-                  <Button
-                    key={mode}
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs"
-                    onClick={() => runAssist(mode)}
-                  >
-                    {label}
-                  </Button>
-                ))
-              )}
-            </div>
-          </BubbleMenuPrimitive>
+            sceneId={sceneId}
+            dial={continuityDial ?? "helpful"}
+            refreshKey={continuityRefreshKey ?? 0}
+          />
         ) : null}
+        <div className="relative min-w-0 flex-1">
+          <EditorContent editor={editor} className={cn(className)} />
+          {showBubble && editor ? (
+            <BubbleMenuPrimitive
+              editor={editor}
+              shouldShow={({ editor: ed }) =>
+                !ed.state.selection.empty &&
+                ed.state.selection.from !== ed.state.selection.to
+              }
+            >
+              <div className="flex flex-wrap gap-1 rounded-md border bg-popover p-1 shadow-md">
+                {assistPending ? (
+                  <span className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Working…
+                  </span>
+                ) : (
+                  INLINE_ACTIONS.map(({ mode, label }) => (
+                    <Button
+                      key={mode}
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                      onClick={() => runAssist(mode)}
+                    >
+                      {label}
+                    </Button>
+                  ))
+                )}
+              </div>
+            </BubbleMenuPrimitive>
+          ) : null}
+        </div>
       </div>
     );
   },

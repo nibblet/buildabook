@@ -67,6 +67,11 @@ export const env = {
     process.env.NEXT_PUBLIC_SHARE_BASE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     "http://localhost:3000",
+
+  /** Set to "false" to disable post-save continuity extraction. Default: enabled. */
+  continuityEditorEnabled: () =>
+    (process.env.CONTINUITY_EDITOR_ENABLED || "true").toLowerCase() !==
+    "false",
 };
 
 // The minimum required to boot. We validate early in a non-throwing way so

@@ -47,6 +47,15 @@ export default async function WorldDetailPage({
           canon line so generations respect this fact. Use a name that matches how it
           appears on the page when you care about mention counts.
         </p>
+        <p className="mt-2 text-sm">
+          <Link
+            href={`/world/${id}/codex`}
+            className="text-foreground underline-offset-4 hover:underline"
+          >
+            View continuity codex
+          </Link>{" "}
+          <span className="text-muted-foreground">(auto-extracted from scenes)</span>
+        </p>
       </header>
 
       <WorldElementForm element={w} />
