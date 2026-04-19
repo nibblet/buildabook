@@ -1,10 +1,6 @@
-import {
-  newProjectDefaults,
-  shouldSeedPnrBeats,
-  writingProfileFromEnv,
-} from "@/lib/deployment/writing-profile";
+import { newProjectDefaults, writingProfileFromEnv } from "@/lib/deployment/writing-profile";
 import { supabaseServer } from "@/lib/supabase/server";
-import { PNR_BEATS } from "@/lib/seed/beats";
+import { seedBeatsForWritingProfile } from "@/lib/seed/beats";
 import type { Project } from "@/lib/supabase/types";
 
 // Returns the user's current project. Auto-creates one on first visit so the
@@ -46,8 +42,9 @@ export async function getOrCreateProject(): Promise<Project | null> {
     .single();
   if (error) throw error;
 
-  if (shouldSeedPnrBeats(profile)) {
-    const beatRows = PNR_BEATS.map((b) => ({
+  const seedBeats = seedBeatsForWritingProfile(profile);
+  if (seedBeats.length) {
+    const beatRows = seedBeats.map((b) => ({
       project_id: (created as Project).id,
       order_index: b.order_index,
       act: b.act,

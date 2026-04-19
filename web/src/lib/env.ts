@@ -42,6 +42,9 @@ export const env = {
 
   anthropicApiKey: () => optional("ANTHROPIC_API_KEY"),
 
+  /** xAI Grok — used when WRITING_PROFILE routes to xAI (e.g. erotic_mature). */
+  xaiApiKey: () => optional("XAI_API_KEY"),
+
   voyageApiKey: () => optional("VOYAGE_API_KEY"),
   voyageEmbeddingModel: () =>
     process.env.VOYAGE_EMBEDDING_MODEL || "voyage-3",
@@ -49,6 +52,11 @@ export const env = {
     process.env.ANTHROPIC_MODEL_PROSE || "claude-sonnet-4-5",
   modelQuick: () =>
     process.env.ANTHROPIC_MODEL_QUICK || "claude-haiku-4-5",
+
+  modelXaiProse: () =>
+    process.env.XAI_MODEL_PROSE || "grok-3",
+  modelXaiQuick: () =>
+    process.env.XAI_MODEL_QUICK || "grok-3-mini",
 
   allowedEmails: () => list("APP_ALLOWED_EMAILS"),
   adminEmails: () => list("APP_ADMIN_EMAILS"),
@@ -77,6 +85,12 @@ export const modelPricing: Record<
   "claude-sonnet-4": { input: 3, output: 15 },
   "claude-haiku-4-5": { input: 1, output: 5 },
   "claude-haiku-4": { input: 1, output: 5 },
+  // xAI Grok — rough USD per 1M tokens; adjust when billing docs change.
+  grok: { input: 3, output: 15 },
+  "grok-3": { input: 3, output: 15 },
+  "grok-3-mini": { input: 0.5, output: 2 },
+  "grok-4": { input: 5, output: 15 },
+  "grok-4.20-reasoning": { input: 5, output: 15 },
 };
 
 export function estimateCostUsd(

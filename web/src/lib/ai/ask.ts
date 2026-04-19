@@ -2,8 +2,11 @@
 
 import { supabaseServer } from "@/lib/supabase/server";
 import { type CorePersonaKey, getPersonas } from "@/lib/ai/personas";
+import {
+  askModel,
+  resolveModelFromProject,
+} from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
-import { askClaude, resolveModelKey } from "@/lib/ai/claude";
 import { buildContext } from "@/lib/ai/context";
 import { retrieveRagContinuity } from "@/lib/ai/rag";
 import { getOrCreateProject } from "@/lib/projects";
@@ -133,11 +136,14 @@ export async function askPersona(input: AskInput): Promise<{
       ragContinuity,
     });
 
-    const model = resolveModelKey(persona.model);
+    const model = resolveModelFromProject(
+      project.writing_profile,
+      persona.model,
+    );
     const directive = `\n\n---\n\n${persona.directive}`;
     const fullSystem = system + directive;
 
-    const { text } = await askClaude({
+    const { text } = await askModel({
       persona: persona.key,
       system: fullSystem,
       user: input.userPrompt,
@@ -145,6 +151,7 @@ export async function askPersona(input: AskInput): Promise<{
       temperature: persona.temperature,
       maxTokens: persona.maxTokens,
       projectId: project.id,
+      writingProfile: parseWritingProfile(project.writing_profile),
       contextType: input.sceneId
         ? "scene"
         : input.chapterId

@@ -1,5 +1,9 @@
-import { askClaude, resolveModelKey } from "@/lib/ai/claude";
-import { env } from "@/lib/env";
+import {
+  aiReadyForWritingProfile,
+  askModel,
+  resolveModelFromProject,
+} from "@/lib/ai/model";
+import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { stripHtml } from "@/lib/html";
 import { getOrCreateProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -11,11 +15,12 @@ import { supabaseServer } from "@/lib/supabase/server";
 export async function maybeProposeRelationshipBeat(
   sceneId: string,
 ): Promise<void> {
-  if (!env.anthropicApiKey()) return;
-
   const supabase = await supabaseServer();
   const project = await getOrCreateProject();
   if (!project) return;
+
+  const wp = parseWritingProfile(project.writing_profile);
+  if (!aiReadyForWritingProfile(wp)) return;
 
   const { data: scene } = await supabase
     .from("scenes")
@@ -62,17 +67,18 @@ export async function maybeProposeRelationshipBeat(
   try {
     const user = `Scene prose (excerpt):\n${plain.slice(0, 1800)}\n\nReturn JSON only: {"propose":false} OR {"propose":true,"beat_label":"short snake_case label","intensity":-5 to 5,"notes":"one sentence"}\nOnly propose if there is a clear romantic beat (attraction spike, conflict in the ship, intimacy milestone). Otherwise {"propose":false}.`;
 
-    const { text } = await askClaude({
+    const { text } = await askModel({
       persona: "profiler",
       system:
         'You output JSON only. No markdown. Keys: propose (boolean), optional beat_label, intensity, notes.',
       user,
-      model: resolveModelKey("quick"),
+      model: resolveModelFromProject(project.writing_profile, "quick"),
       temperature: 0.2,
       maxTokens: 220,
       projectId: project.id,
       contextType: "relationship_beat_proposal",
       contextId: sceneId,
+      writingProfile: wp,
     });
 
     const cleaned = text.replace(/```json\n?|\n?```/g, "").trim();

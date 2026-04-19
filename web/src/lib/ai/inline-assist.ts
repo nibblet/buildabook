@@ -1,8 +1,11 @@
 "use server";
 
 import { getPersonas } from "@/lib/ai/personas";
+import {
+  askModel,
+  resolveModelFromProject,
+} from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
-import { askClaude, resolveModelKey } from "@/lib/ai/claude";
 import { buildContext } from "@/lib/ai/context";
 import { retrieveRagContinuity } from "@/lib/ai/rag";
 import { getOrCreateProject } from "@/lib/projects";
@@ -141,8 +144,8 @@ export async function runInlineAssist(input: {
     const directive = `\n\n---\n\n${MODE_PROMPTS[input.mode]}`;
     const user = `SELECTION TO REVISE (quoted for clarity — do not include these quote marks in your output):\n"""\n${trimmed}\n"""`;
 
-    const model = resolveModelKey(persona.model);
-    const { text } = await askClaude({
+    const model = resolveModelFromProject(project.writing_profile, persona.model);
+    const { text } = await askModel({
       persona: "partner",
       system: base + directive,
       user,
@@ -150,6 +153,7 @@ export async function runInlineAssist(input: {
       temperature: persona.temperature,
       maxTokens: persona.maxTokens,
       projectId: project.id,
+      writingProfile: parseWritingProfile(project.writing_profile),
       contextType: "scene",
       contextId: input.sceneId,
     });

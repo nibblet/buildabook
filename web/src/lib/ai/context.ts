@@ -1,4 +1,8 @@
-import { parseWritingProfile, writingProfilePrompts } from "@/lib/deployment/writing-profile";
+import {
+  parseWritingProfile,
+  projectTagFieldLabel,
+  writingProfilePrompts,
+} from "@/lib/deployment/writing-profile";
 import type {
   Beat,
   Character,
@@ -73,9 +77,12 @@ export function buildContext(bundle: ContextBundle): string {
   lines.push("");
   lines.push("PROJECT");
   lines.push(`- Title: ${project.title}`);
-  if (project.paranormal_type)
-    lines.push(`- Paranormal type: ${project.paranormal_type}`);
-  if (project.heat_level)
+  if (project.paranormal_type) {
+    lines.push(
+      `- ${projectTagFieldLabel(wp)}: ${project.paranormal_type}`,
+    );
+  }
+  if (project.heat_level && project.heat_level !== "n_a")
     lines.push(`- Heat level: ${project.heat_level}`);
   if (tropes.length) lines.push(`- Active tropes: ${tropes.join(", ")}`);
   lines.push("");

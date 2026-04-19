@@ -1,4 +1,9 @@
-import { askClaude, resolveModelKey } from "@/lib/ai/claude";
+import {
+  aiReadyForWritingProfile,
+  askModel,
+  resolveModelFromProject,
+} from "@/lib/ai/model";
+import { aiProviderForWritingProfile, parseWritingProfile } from "@/lib/deployment/writing-profile";
 import type { FactCheckWarning } from "@/lib/supabase/types";
 import { getOrCreateProject } from "@/lib/projects";
 import { stripHtml } from "@/lib/html";
@@ -8,12 +13,19 @@ import type { Character, Scene, WorldElement } from "@/lib/supabase/types";
 export async function runChapterFactCheck(
   chapterId: string,
 ): Promise<{ ok: boolean; warnings?: FactCheckWarning[]; error?: string }> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { ok: false, error: "Anthropic API key not configured." };
-  }
-
   const project = await getOrCreateProject();
   if (!project) return { ok: false, error: "No project." };
+
+  const wp = parseWritingProfile(project.writing_profile);
+  if (!aiReadyForWritingProfile(wp)) {
+    return {
+      ok: false,
+      error:
+        aiProviderForWritingProfile(wp) === "xai"
+          ? "xAI API key not configured."
+          : "Anthropic API key not configured.",
+    };
+  }
 
   const supabase = await supabaseServer();
   const { data: chapter } = await supabase
@@ -52,17 +64,18 @@ export async function runChapterFactCheck(
   const user = `CHAPTER SCENES (plain text):\n${prose.slice(0, 12000)}\n\nCANON CHARACTERS:\n${charBlock}\n\nCANON WORLD:\n${worldBlock}\n\nReturn JSON only: {"warnings":[{"message":"...","severity":"warn"|"info"}]}\nList up to 6 possible continuity issues (contradictions with canon, timeline, names, powers). If none, {"warnings":[]}.`;
 
   try {
-    const { text } = await askClaude({
+    const { text } = await askModel({
       persona: "profiler",
       system:
         'You are a continuity checker. Output JSON only: {"warnings":[{"message":"string","severity":"warn"|"info"}]}. No prose.',
       user,
-      model: resolveModelKey("quick"),
+      model: resolveModelFromProject(project.writing_profile, "quick"),
       temperature: 0.1,
       maxTokens: 600,
       projectId: project.id,
       contextType: "chapter_fact_check",
       contextId: chapterId,
+      writingProfile: wp,
     });
 
     const cleaned = text.replace(/```json\n?|\n?```/g, "").trim();

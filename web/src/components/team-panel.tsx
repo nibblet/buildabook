@@ -300,34 +300,66 @@ function defaultQuickPrompts(
 ): string[] {
   switch (key) {
     case "partner":
-      return [
-        "Continue the scene",
-        "Open with a sensory detail",
-        "Write from his POV",
-        "Show what she notices",
-      ];
-    case "profiler":
-      return [
-        "What's working here?",
-        "Is the tension landing?",
-        "Does the POV hold?",
-        "What is this scene really about?",
-      ];
-    case "specialist":
       return writingProfile === "erotic_mature"
         ? [
-            "Is this beat hitting for erotic romance readers?",
-            "What would readers expect next?",
-            "Heat level vs emotional beat — thoughts?",
+            "Continue the scene",
+            "More interiority before the next touch",
+            "Same moment, the other lead's POV",
+            "Dial up tension without rushing payoff",
           ]
         : [
-            "Is this beat normal for PNR?",
-            "What would readers expect next?",
-            "Heat level vs tone — thoughts?",
+            "Continue the scene",
+            "Open with a sensory detail",
+            "Write from his POV",
+            "Show what she notices",
           ];
+    case "profiler":
+      return writingProfile === "erotic_mature"
+        ? [
+            "What's working emotionally here?",
+            "Is desire and consent both legible?",
+            "Does the POV stay embodied?",
+            "What would make the next beat cost more?",
+          ]
+        : [
+            "What's working here?",
+            "Is the tension landing?",
+            "Does the POV hold?",
+            "What is this scene really about?",
+          ];
+    case "specialist":
+      if (writingProfile === "erotic_mature")
+        return [
+          "Is this beat hitting for erotic romance readers?",
+          "What would readers expect next?",
+          "Heat level vs emotional beat — thoughts?",
+        ];
+      if (writingProfile === "sci_fi")
+        return [
+          "Does this world rule support the scene’s stakes?",
+          "What would genre readers expect next from this subgenre?",
+          "Speculative vs. character — is the balance working?",
+        ];
+      return [
+        "Is this beat normal for PNR?",
+        "What would readers expect next?",
+        "Heat level vs tone — thoughts?",
+      ];
     case "proofreader":
       return ["Proofread my last paragraph", "Check tense consistency"];
     case "analyst":
+      if (writingProfile === "sci_fi")
+        return [
+          "5 surnames for this character",
+          "Alternate title options with a science angle",
+          "3 ways this world rule could complicate the next scene",
+        ];
+      if (writingProfile === "erotic_mature")
+        return [
+          "5 first names that fit this heat + tone",
+          "Alternate titles with emotional hook",
+          "3 ways this scene could pivot on a boundary or choice",
+        ];
       return [
         "5 surname options for her",
         "Alternate chapter titles",

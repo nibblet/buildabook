@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { askClaude, resolveModelKey } from "@/lib/ai/claude";
+import {
+  aiReadyForWritingProfile,
+  askModel,
+  resolveModelFromProject,
+} from "@/lib/ai/model";
 import { getPersonas } from "@/lib/ai/personas";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
-import { env } from "@/lib/env";
 import { getOrCreateProject } from "@/lib/projects";
 import { loadSpine, pickCurrentScene, type SpineData } from "@/lib/spine";
 import type { Scene } from "@/lib/supabase/types";
@@ -70,22 +73,22 @@ export async function wrapWritingSession(writerNoteRaw: string) {
 
   let summaryText = fallbackSummary(spine, scene);
 
-  const apiKey = env.anthropicApiKey();
-  if (apiKey) {
+  const wp = parseWritingProfile(project.writing_profile);
+  if (aiReadyForWritingProfile(wp)) {
     try {
       const user = buildWrapPrompt(spine, scene);
-      const profiler = getPersonas(parseWritingProfile(project.writing_profile))
-        .profiler;
-      const result = await askClaude({
+      const profiler = getPersonas(wp).profiler;
+      const result = await askModel({
         persona: "profiler",
         system: `${profiler.directive}\n\nFor THIS task only: ignore questions. Reply with exactly two sentences in past tense. Summarize what the writer worked on this session and where the story stands (scene goal/tension). No headings, bullets, or greeting.`,
         user: `Session wrap for continuity dashboard:\n\n${user}`,
-        model: resolveModelKey("quick"),
+        model: resolveModelFromProject(project.writing_profile, "quick"),
         temperature: 0.35,
         maxTokens: 220,
         projectId: project.id,
         contextType: "session_wrap",
         contextId: scene?.id ?? null,
+        writingProfile: wp,
       });
       const t = result.text.trim().replace(/\s+/g, " ");
       if (t.length > 20) summaryText = t;

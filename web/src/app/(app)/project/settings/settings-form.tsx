@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { parseWritingProfile, projectTagFieldLabel } from "@/lib/deployment/writing-profile";
 import type { Project, StyleSample } from "@/lib/supabase/types";
 import {
   createStyleSample,
@@ -23,6 +24,7 @@ export function SettingsForm({
   project: Project;
   styleSamples: StyleSample[];
 }) {
+  const writingProfile = parseWritingProfile(project.writing_profile);
   const [title, setTitle] = useState(project.title);
   const [premise, setPremise] = useState(project.premise ?? "");
   const [styleNotes, setStyleNotes] = useState(project.style_notes ?? "");
@@ -104,7 +106,7 @@ export function SettingsForm({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
-              label="Paranormal type"
+              label={projectTagFieldLabel(writingProfile)}
               value={paranormalType}
               onChange={setParanormalType}
             />

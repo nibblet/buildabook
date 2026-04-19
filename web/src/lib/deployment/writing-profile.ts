@@ -1,6 +1,10 @@
 /** Server-driven deployment slice: same DB, genre/prompts locked per Vercel deploy (WRITING_PROFILE). */
 
-export const WRITING_PROFILE_IDS = ["pnr_dawn", "erotic_mature"] as const;
+export const WRITING_PROFILE_IDS = [
+  "pnr_dawn",
+  "erotic_mature",
+  "sci_fi",
+] as const;
 
 export type WritingProfileId = (typeof WRITING_PROFILE_IDS)[number];
 
@@ -61,6 +65,16 @@ export function writingProfilePrompts(
         extractEditorDescription:
           "expert developmental editor for adult erotic romance fiction",
       };
+    case "sci_fi":
+      return {
+        missionLine:
+          "You are helping an author write a science fiction novel.",
+        genreForConventions: "science fiction",
+        specialistTagline: "Science fiction genre expert.",
+        specialistDirective: `You are a science fiction genre expert. Do not write prose. Answer the author's question with reference to SF reader expectations — worldbuilding coherence, speculative conceit, pacing, theme, and how trope expectations show up across space opera, near-future, cyberpunk, first contact, cli-fi, etc. When you cite a convention, name it and explain in one sentence why it works for readers. If the author's instinct diverges from convention, say so neutrally and name the trade-off. Keep the response under 250 words.`,
+        extractEditorDescription:
+          "expert developmental editor for science fiction manuscripts",
+      };
     default: {
       const _exhaustive: never = id;
       return _exhaustive;
@@ -89,6 +103,13 @@ export function newProjectDefaults(id: WritingProfileId): {
         heat_level: "explicit",
         target_wordcount: 30000,
       };
+    case "sci_fi":
+      return {
+        title: "Untitled Novel",
+        subgenre: "science_fiction",
+        heat_level: "n_a",
+        target_wordcount: 90000,
+      };
     default: {
       const _exhaustive: never = id;
       return _exhaustive;
@@ -96,6 +117,16 @@ export function newProjectDefaults(id: WritingProfileId): {
   }
 }
 
-export function shouldSeedPnrBeats(id: WritingProfileId): boolean {
-  return id === "pnr_dawn";
+/** Form label for `project.paranormal_type` (genre-specific reuse of the column). */
+export function projectTagFieldLabel(id: WritingProfileId): string {
+  if (id === "sci_fi") return "Core concept / subgenre";
+  if (id === "erotic_mature") return "Setting / hook";
+  return "Paranormal type";
+}
+
+/** LLM backend for this workspace slice (`erotic_mature` uses xAI Grok per deploy env). */
+export function aiProviderForWritingProfile(
+  id: WritingProfileId,
+): "anthropic" | "xai" {
+  return id === "erotic_mature" ? "xai" : "anthropic";
 }

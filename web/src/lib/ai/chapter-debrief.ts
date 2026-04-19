@@ -1,4 +1,12 @@
-import { askClaude, resolveModelKey } from "@/lib/ai/claude";
+import {
+  aiReadyForWritingProfile,
+  askModel,
+  resolveModelFromProject,
+} from "@/lib/ai/model";
+import {
+  aiProviderForWritingProfile,
+  parseWritingProfile,
+} from "@/lib/deployment/writing-profile";
 import { getOrCreateProject } from "@/lib/projects";
 import { stripHtml } from "@/lib/html";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -8,12 +16,19 @@ import type { Scene } from "@/lib/supabase/types";
 export async function runChapterDebrief(
   chapterId: string,
 ): Promise<{ ok: boolean; text?: string; error?: string }> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { ok: false, error: "Anthropic API key not configured." };
-  }
-
   const project = await getOrCreateProject();
   if (!project) return { ok: false, error: "No project." };
+
+  const wp = parseWritingProfile(project.writing_profile);
+  if (!aiReadyForWritingProfile(wp)) {
+    return {
+      ok: false,
+      error:
+        aiProviderForWritingProfile(wp) === "xai"
+          ? "xAI API key not configured."
+          : "Anthropic API key not configured.",
+    };
+  }
 
   const supabase = await supabaseServer();
   const { data: chapter } = await supabase
@@ -43,17 +58,18 @@ export async function runChapterDebrief(
     `Chapter ${(chapter.order_index ?? 0) + 1}`;
 
   try {
-    const { text } = await askClaude({
+    const { text } = await askModel({
       persona: "profiler",
       system:
         "You are a developmental editor. Write two short paragraphs: (1) what shifts for the reader in this chapter emotionally and plot-wise, (2) one craft strength and one optional improvement. Plain language. No bullets.",
       user: `Chapter: ${chTitle}\n\nScene prose:\n${prose.slice(0, 14000)}`,
-      model: resolveModelKey("quick"),
+      model: resolveModelFromProject(project.writing_profile, "quick"),
       temperature: 0.35,
       maxTokens: 500,
       projectId: project.id,
       contextType: "chapter_debrief",
       contextId: chapterId,
+      writingProfile: wp,
     });
 
     return { ok: true, text: text.trim() };

@@ -15,7 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { TROPE_OPTIONS } from "@/lib/seed/beats";
+import {
+  type WritingProfileId,
+  projectTagFieldLabel,
+} from "@/lib/deployment/writing-profile";
+import type { TropeOption } from "@/lib/seed/beats";
 import { cn } from "@/lib/utils";
 import type { ExtractedDraftT } from "@/lib/ai/extract";
 import { runExtraction, commitOnboarding } from "./actions";
@@ -28,7 +32,17 @@ type ApprovedState = {
   openThreads: boolean[];
 };
 
-export function OnboardingClient() {
+export function OnboardingClient({
+  writingProfile,
+  tropeOptions,
+  defaultTargetWordcount,
+  defaultHeatLevel,
+}: {
+  writingProfile: WritingProfileId;
+  tropeOptions: TropeOption[];
+  defaultTargetWordcount: number;
+  defaultHeatLevel: string;
+}) {
   const [step, setStep] = useState<Step>("paste");
   const [draft, setDraft] = useState("");
   const [extracted, setExtracted] = useState<ExtractedDraftT | null>(null);
@@ -39,8 +53,8 @@ export function OnboardingClient() {
   const [premise, setPremise] = useState("");
   const [styleNotes, setStyleNotes] = useState("");
   const [paranormalType, setParanormalType] = useState("");
-  const [heatLevel, setHeatLevel] = useState("steamy");
-  const [targetWordcount, setTargetWordcount] = useState(30000);
+  const [heatLevel, setHeatLevel] = useState(defaultHeatLevel);
+  const [targetWordcount, setTargetWordcount] = useState(defaultTargetWordcount);
   const [chapterTitle, setChapterTitle] = useState("");
   const [tropes, setTropes] = useState<string[]>([]);
   const [approved, setApproved] = useState<ApprovedState>({
@@ -276,27 +290,35 @@ export function OnboardingClient() {
               onChange={setStyleNotes}
               placeholder="How your prose sounds — rhythm, POV, habits."
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div
+              className={
+                writingProfile === "sci_fi"
+                  ? "grid gap-3"
+                  : "grid grid-cols-2 gap-3"
+              }
+            >
               <FieldInput
-                label="Paranormal type"
+                label={projectTagFieldLabel(writingProfile)}
                 value={paranormalType}
                 onChange={setParanormalType}
               />
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Heat level
-                </Label>
-                <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  value={heatLevel}
-                  onChange={(e) => setHeatLevel(e.target.value)}
-                >
-                  <option value="sweet">Sweet</option>
-                  <option value="sensual">Sensual</option>
-                  <option value="steamy">Steamy</option>
-                  <option value="explicit">Explicit</option>
-                </select>
-              </div>
+              {writingProfile !== "sci_fi" ? (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    Heat level
+                  </Label>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    value={heatLevel}
+                    onChange={(e) => setHeatLevel(e.target.value)}
+                  >
+                    <option value="sweet">Sweet</option>
+                    <option value="sensual">Sensual</option>
+                    <option value="steamy">Steamy</option>
+                    <option value="explicit">Explicit</option>
+                  </select>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">
@@ -314,7 +336,7 @@ export function OnboardingClient() {
                 Tropes (pick any that fit)
               </Label>
               <div className="mt-2 flex flex-wrap gap-2">
-                {TROPE_OPTIONS.map((t) => {
+                {tropeOptions.map((t) => {
                   const on = tropes.includes(t.id);
                   return (
                     <button

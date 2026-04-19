@@ -17,20 +17,37 @@ export type PersonaConfig = {
   maxTokens: number;
 };
 
+const PARTNER_CORE = `Write the next 200–350 words of prose, matching the voice described above. Stay inside the POV character's head. Show behavior — don't narrate feelings. End on a beat that invites the author's next choice. Do not summarize. Do not narrate what's happening from the outside — be in the scene. Do not add headings, labels, notes, or commentary. Return only the prose.`;
+
+/** Adult romance: bolder sensory and intimate prose when the scene warrants it. */
+const PARTNER_EROTIC_EXTENSION = `
+This is adult erotic romance: match or slightly deepen the manuscript's heat—when the moment is intimate or explicit, write fully and precisely (sensation, rhythm, breath, weight, aftermath). Build want on the page; escalate and release tension in-character. Anchor every explicit beat in consent and mutual desire as already established in the author's draft—never add coercion or ambiguity about willingness. Avoid euphemistic fade-outs unless the pasted draft uses them; do not sanitize or shy away from body and desire if the scene is already headed there. Power dynamics and edge are fair game if they fit the project's voice—keep them purposeful, never gratuitous.`;
+
 export function getPersonas(
   writingProfile: WritingProfileId,
 ): Record<CorePersonaKey, PersonaConfig> {
   const pr = writingProfilePrompts(writingProfile);
 
+  const partnerDirective =
+    writingProfile === "erotic_mature"
+      ? `${PARTNER_CORE}${PARTNER_EROTIC_EXTENSION}`
+      : PARTNER_CORE;
+
+  const partnerTemp = writingProfile === "erotic_mature" ? 0.88 : 0.8;
+  const partnerTokens = writingProfile === "erotic_mature" ? 1100 : 900;
+
   return {
     partner: {
       key: "partner",
       label: "The Partner",
-      tagline: "Writes prose in your voice.",
-      directive: `Write the next 200–350 words of prose, matching the voice described above. Stay inside the POV character's head. Show behavior — don't narrate feelings. End on a beat that invites the author's next choice. Do not summarize. Do not narrate what's happening from the outside — be in the scene. Do not add headings, labels, notes, or commentary. Return only the prose.`,
-      temperature: 0.8,
+      tagline:
+        writingProfile === "erotic_mature"
+          ? "Writes steamy prose in your voice."
+          : "Writes prose in your voice.",
+      directive: partnerDirective,
+      temperature: partnerTemp,
       model: "prose",
-      maxTokens: 900,
+      maxTokens: partnerTokens,
     },
     profiler: {
       key: "profiler",

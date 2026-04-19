@@ -5,7 +5,7 @@ import {
   parseWritingProfile,
   writingProfilePrompts,
 } from "@/lib/deployment/writing-profile";
-import { askClaude, resolveModelKey } from "@/lib/ai/claude";
+import { askModel, resolveModelFromProject } from "@/lib/ai/model";
 import {
   promptRoleAlternatives,
   promptSpeciesAlternatives,
@@ -288,8 +288,8 @@ export async function extractDraft(
 
   const wp = parseWritingProfile(opts?.writingProfile ?? undefined);
 
-  const model = resolveModelKey("prose");
-  const { text } = await askClaude({
+  const model = resolveModelFromProject(wp, "prose");
+  const { text } = await askModel({
     persona: "extract",
     system: extractSystemPrompt(wp),
     user: extractUserPromptFromParagraphs(paragraphs),
@@ -299,6 +299,7 @@ export async function extractDraft(
     maxTokens: 8192,
     projectId: opts?.projectId ?? null,
     contextType: "onboarding",
+    writingProfile: wp,
   });
 
   const parsedRaw = extractJson(text);
