@@ -5,6 +5,10 @@ import { firePostSaveScenePipeline } from "@/lib/ai/post-save-scene";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { countWords } from "@/lib/utils";
+import {
+  parseSceneBlueprint,
+  type SceneBlueprint,
+} from "@/lib/scene-blueprint";
 
 export async function saveSceneContent(
   sceneId: string,
@@ -334,4 +338,39 @@ export async function createNextChapter(projectId: string) {
   if (scErr) throw scErr;
   revalidatePath("/");
   return { chapterId: data.id as string, sceneId: scene.id as string };
+}
+
+export async function saveSceneBlueprint(
+  sceneId: string,
+  patch: Partial<SceneBlueprint>,
+): Promise<SceneBlueprint> {
+  const project = await getOrCreateProject();
+  if (!project) throw new Error("No project.");
+  const supabase = await supabaseServer();
+
+  const { data: row } = await supabase
+    .from("scenes")
+    .select("id, blueprint, chapter_id, chapters!inner(project_id)")
+    .eq("id", sceneId)
+    .maybeSingle();
+  if (!row) throw new Error("Scene not found.");
+  const chap = (row as unknown as { chapters?: { project_id?: string } })
+    .chapters;
+  if (chap?.project_id !== project.id) throw new Error("Scene not in project.");
+
+  const current = parseSceneBlueprint((row as { blueprint?: unknown }).blueprint);
+  const next: SceneBlueprint = {
+    ...current,
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from("scenes")
+    .update({ blueprint: next })
+    .eq("id", sceneId);
+  if (error) throw error;
+
+  revalidatePath(`/scenes/${sceneId}`);
+  return next;
 }

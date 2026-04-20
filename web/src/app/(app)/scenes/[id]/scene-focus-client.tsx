@@ -19,6 +19,8 @@ import {
   updateSceneCharacterArc,
   updateSceneFields,
 } from "../actions";
+import { SceneBlueprintSection } from "./scene-blueprint";
+import { parseSceneBlueprint } from "@/lib/scene-blueprint";
 import { cn, formatNumber } from "@/lib/utils";
 import { stripHtml } from "@/lib/html";
 import { idsMatchingMentionsInText } from "@/lib/mentions/character-mention-backfill";
@@ -356,6 +358,11 @@ export function SceneFocusClient({
               />
             </div>
           </details>
+
+          <SceneBlueprintSection
+            sceneId={scene.id}
+            initial={parseSceneBlueprint(scene.blueprint)}
+          />
 
           <ProseEditor
             ref={editorRef}
