@@ -3,6 +3,7 @@ import {
   projectTagFieldLabel,
   writingProfilePrompts,
 } from "@/lib/deployment/writing-profile";
+import { stripHtml } from "@/lib/html";
 import type {
   Beat,
   Character,
@@ -12,6 +13,8 @@ import type {
   StyleSample,
   WorldElement,
 } from "@/lib/supabase/types";
+
+const SCENE_PROSE_TAIL_CHARS = 4000;
 
 export type ContextBundle = {
   project: Project;
@@ -131,9 +134,15 @@ export function buildContext(bundle: ContextBundle): string {
   }
   if (currentScene) {
     lines.push("CURRENT SCENE");
+    if (currentScene.title) lines.push(`Title: ${currentScene.title}`);
     if (currentScene.goal) lines.push(`Goal: ${currentScene.goal}`);
     if (currentScene.conflict) lines.push(`Conflict: ${currentScene.conflict}`);
     if (currentScene.outcome) lines.push(`Planned outcome: ${currentScene.outcome}`);
+    const proseBlock = formatSceneProse(currentScene.content);
+    if (proseBlock) {
+      lines.push("");
+      lines.push(proseBlock);
+    }
     lines.push("");
   }
 
@@ -150,6 +159,17 @@ export function buildContext(bundle: ContextBundle): string {
   }
 
   return lines.join("\n");
+}
+
+function formatSceneProse(content: string | null | undefined): string | null {
+  if (!content) return null;
+  const plain = stripHtml(content);
+  if (!plain) return "Scene prose so far: (blank — this is the opening.)";
+  if (plain.length <= SCENE_PROSE_TAIL_CHARS) {
+    return `Scene prose so far (full draft, continue from the end — do not repeat it):\n${plain}`;
+  }
+  const tail = plain.slice(-SCENE_PROSE_TAIL_CHARS);
+  return `Scene prose so far (latest ${SCENE_PROSE_TAIL_CHARS} chars — earlier prose omitted; continue from the end, do not repeat it):\n…${tail}`;
 }
 
 function pickStyleSample(
