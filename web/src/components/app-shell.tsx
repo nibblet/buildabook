@@ -147,17 +147,27 @@ function SidebarHeader({ title }: { title: string }) {
   );
 }
 
-const STUDIO_LINKS = [
+const STUDIO_LINKS: ReadonlyArray<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  alsoActiveOn?: readonly string[];
+}> = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/characters", label: "Characters", icon: Users },
   { href: "/world", label: "World", icon: Globe },
   { href: "/relationships", label: "Relationships", icon: Heart },
-  { href: "/spine", label: "Story spine", icon: BookMarked },
+  {
+    href: "/spine",
+    label: "Structure",
+    icon: BookMarked,
+    alsoActiveOn: ["/outline", "/plan"],
+  },
   { href: "/manuscript", label: "Manuscript", icon: ScrollText },
   { href: "/arc-tracker", label: "Arc tracker", icon: GitBranch },
   { href: "/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/project/settings", label: "Settings", icon: Settings },
-] as const;
+];
 
 function StudioNav({ className }: { className?: string }) {
   const pathname = usePathname();
@@ -169,11 +179,15 @@ function StudioNav({ className }: { className?: string }) {
       )}
     >
       <ul className="grid grid-cols-2 gap-0.5">
-        {STUDIO_LINKS.map(({ href, label, icon: Icon }) => {
-          const active =
+        {STUDIO_LINKS.map(({ href, label, icon: Icon, alsoActiveOn }) => {
+          const matchesSelf =
             href === "/"
               ? pathname === "/"
               : pathname === href || pathname.startsWith(`${href}/`);
+          const matchesAlias = (alsoActiveOn ?? []).some(
+            (alias) => pathname === alias || pathname.startsWith(`${alias}/`),
+          );
+          const active = matchesSelf || matchesAlias;
           return (
             <li key={href}>
               <Link

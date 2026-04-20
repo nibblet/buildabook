@@ -98,6 +98,8 @@ export type Scene = {
   continuity_content_hash?: string | null;
   continuity_extracted_at?: string | null;
   continuity_extractor_version?: number | null;
+  /** Pre-write scratchpad (intent / takeaway / character shift / notes). */
+  blueprint?: unknown;
 };
 
 export type ContinuityClaim = {
