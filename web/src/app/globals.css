@@ -235,6 +235,18 @@
   pointer-events: none;
 }
 
+.tiptap span[data-wiki-link] {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  border-bottom: 1px dotted color-mix(in oklab, var(--primary) 60%, transparent);
+  padding: 0 0.15em;
+  border-radius: 0.125rem;
+  cursor: help;
+}
+.tiptap span[data-wiki-link][data-target-key=""] {
+  background: color-mix(in oklab, var(--destructive) 12%, transparent);
+  border-bottom-color: var(--destructive);
+}
+
 /* ─── Writing mode surface overrides ──────────────────────────────── */
 
 /* In writing mode, no shadows on contained surfaces */
