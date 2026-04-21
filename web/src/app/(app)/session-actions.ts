@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createHash } from "node:crypto";
 import {
   aiReadyForWritingProfile,
   askModel,
@@ -9,12 +10,30 @@ import {
 import { getPersonas } from "@/lib/ai/personas";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { getOrCreateProject } from "@/lib/projects";
+import { getOrGenerateReflection } from "@/lib/ai/reflections";
 import { loadSpine, pickCurrentScene, type SpineData } from "@/lib/spine";
 import type { Scene } from "@/lib/supabase/types";
 import { supabaseServer } from "@/lib/supabase/server";
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function sessionSignaturePayload(
+  scene: Scene | null,
+  writerNote: string | null,
+): string {
+  if (!scene) return JSON.stringify({ scene: null, writerNote });
+  const plain = stripHtml(scene.content ?? "");
+  return JSON.stringify({
+    sceneId: scene.id,
+    wordcount: scene.wordcount ?? 0,
+    goal: scene.goal,
+    conflict: scene.conflict,
+    outcome: scene.outcome,
+    proseHash: createHash("sha256").update(plain).digest("hex"),
+    writerNote,
+  });
 }
 
 function buildWrapPrompt(spine: SpineData, scene: Scene | null): string {
@@ -71,27 +90,50 @@ export async function wrapWritingSession(writerNoteRaw: string) {
   const spine = await loadSpine(project.id);
   const scene = pickCurrentScene(spine);
 
+  const wp = parseWritingProfile(project.writing_profile);
+  const signature = createHash("sha256")
+    .update(sessionSignaturePayload(scene, writerNote))
+    .digest("hex");
+
   let summaryText = fallbackSummary(spine, scene);
 
-  const wp = parseWritingProfile(project.writing_profile);
   if (aiReadyForWritingProfile(wp)) {
     try {
-      const user = buildWrapPrompt(spine, scene);
-      const profiler = getPersonas(wp).profiler;
-      const result = await askModel({
-        persona: "profiler",
-        system: `${profiler.directive}\n\nFor THIS task only: ignore questions. Reply with exactly two sentences in past tense. Summarize what the writer worked on this session and where the story stands (scene goal/tension). No headings, bullets, or greeting.`,
-        user: `Session wrap for continuity dashboard:\n\n${user}`,
-        model: resolveModelFromProject(project.writing_profile, "quick"),
-        temperature: 0.35,
-        maxTokens: 220,
+      summaryText = await getOrGenerateReflection({
         projectId: project.id,
-        contextType: "session_wrap",
-        contextId: scene?.id ?? null,
-        writingProfile: wp,
+        kind: "session_wrap",
+        targetId: scene?.id ?? null,
+        newSignature: signature,
+        generate: async () => {
+          const user = buildWrapPrompt(spine, scene);
+          const profiler = getPersonas(wp).profiler;
+          const model = resolveModelFromProject(
+            project.writing_profile,
+            "quick",
+          );
+          const result = await askModel({
+            persona: "reflect_session",
+            system: `${profiler.directive}\n\nFor THIS task only: ignore questions. Reply with exactly two sentences in past tense. Summarize what the writer worked on this session and where the story stands (scene goal/tension). No headings, bullets, or greeting.`,
+            user: `Session wrap for continuity dashboard:\n\n${user}`,
+            model,
+            temperature: 0.35,
+            maxTokens: 220,
+            projectId: project.id,
+            contextType: "session_wrap",
+            contextId: scene?.id ?? null,
+            writingProfile: wp,
+          });
+          const t = result.text.trim().replace(/\s+/g, " ");
+          return {
+            body: t.length > 20 ? t : fallbackSummary(spine, scene),
+            model,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            costUsd: result.costUsd,
+            aiInteractionId: null,
+          };
+        },
       });
-      const t = result.text.trim().replace(/\s+/g, " ");
-      if (t.length > 20) summaryText = t;
     } catch (e) {
       console.error("session wrap AI failed:", e);
     }
