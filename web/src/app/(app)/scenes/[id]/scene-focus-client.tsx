@@ -113,15 +113,6 @@ export function SceneFocusClient({
   );
   const selectedRevision = revisions.find((r) => r.id === selectedRevisionId) ?? null;
 
-  function toggleBeat(beatId: string) {
-    setBeatIds((prev) =>
-      prev.includes(beatId)
-        ? prev.filter((id) => id !== beatId)
-        : [...prev, beatId],
-    );
-    metaDirtyRef.current = true;
-  }
-
   const persist = useCallback(
     async (html: string, words: number) => {
       const fp = prosePlainFingerprint(html);
@@ -245,7 +236,7 @@ export function SceneFocusClient({
   return (
     <div
       className={cn(
-        "grid min-h-[calc(100vh-0px)] grid-rows-[auto_1fr]",
+        "grid h-full grid-rows-[auto_1fr]",
         focusMode
           ? "md:grid-cols-1 md:grid-rows-1"
           : "md:grid-cols-[1fr_22rem] md:grid-rows-1",
@@ -321,28 +312,14 @@ export function SceneFocusClient({
             className="mb-6 h-auto border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
           />
 
-          <details className="mb-6 rounded-md border p-3 text-sm" open>
-            <summary className="label-eyebrow cursor-pointer select-none">
-              Story beats — what milestone does this scene advance?
-            </summary>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Beats are checkpoints (Ordinary World, Meet Cute, …), not chapter
-              titles. Tag each scene so the left spine shows progression the way you
-              intend — this scene is listed under every beat you select. Untagged scenes
-              stay grouped under this chapter&apos;s primary beat only.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {beats.map((b) => (
-                <Chip
-                  key={b.id}
-                  active={beatIds.includes(b.id)}
-                  onClick={() => toggleBeat(b.id)}
-                >
-                  {b.title}
-                </Chip>
-              ))}
-            </div>
-          </details>
+          <BeatPicker
+            beats={beats}
+            beatIds={beatIds}
+            setBeatIds={(next) => {
+              setBeatIds(next);
+              metaDirtyRef.current = true;
+            }}
+          />
 
           <details className="mb-6 rounded-md border p-3 text-sm">
             <summary className="label-eyebrow cursor-pointer select-none">
@@ -611,6 +588,117 @@ function FloatingTeamReopener({
         <Sparkles className="h-4 w-4" />
       </button>
     </div>
+  );
+}
+
+function BeatPicker({
+  beats,
+  beatIds,
+  setBeatIds,
+}: {
+  beats: Beat[];
+  beatIds: string[];
+  setBeatIds: (next: string[]) => void;
+}) {
+  const beatById = new Map(beats.map((b) => [b.id, b]));
+  const primaryId = beatIds[0] ?? "";
+  const additionalIds = beatIds.slice(1);
+  const availableAdditional = beats.filter(
+    (b) => b.id !== primaryId && !additionalIds.includes(b.id),
+  );
+  const summary =
+    beatIds.length === 0
+      ? "None"
+      : beatIds
+          .map((id) => beatById.get(id)?.title)
+          .filter(Boolean)
+          .join(" · ");
+
+  const onPrimaryChange = (id: string) => {
+    if (!id) {
+      setBeatIds(additionalIds);
+      return;
+    }
+    const filtered = additionalIds.filter((x) => x !== id);
+    setBeatIds([id, ...filtered]);
+  };
+
+  const addAdditional = (id: string) => {
+    if (!id) return;
+    setBeatIds([primaryId || id, ...additionalIds, ...(primaryId ? [id] : [])].filter(
+      (v, i, arr) => v && arr.indexOf(v) === i,
+    ));
+  };
+
+  const removeAdditional = (id: string) => {
+    setBeatIds([primaryId, ...additionalIds.filter((x) => x !== id)].filter(Boolean));
+  };
+
+  return (
+    <details className="mb-6 rounded-md border p-3 text-sm">
+      <summary className="label-eyebrow flex cursor-pointer select-none items-center justify-between gap-2">
+        <span>Story beats</span>
+        <span className="truncate text-xs font-normal normal-case tracking-normal text-muted-foreground">
+          {summary}
+        </span>
+      </summary>
+      <div className="mt-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Label className="w-20 text-xs font-medium">Primary</Label>
+          <select
+            value={primaryId}
+            onChange={(e) => onPrimaryChange(e.target.value)}
+            className="h-8 flex-1 rounded-md border bg-background px-2 text-sm"
+          >
+            <option value="">None</option>
+            {beats.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-start gap-2">
+          <Label className="w-20 pt-1 text-xs font-medium">Additional</Label>
+          <div className="flex flex-1 flex-wrap items-center gap-1.5">
+            {additionalIds.map((id) => {
+              const b = beatById.get(id);
+              if (!b) return null;
+              return (
+                <Chip
+                  key={id}
+                  active
+                  onClick={() => removeAdditional(id)}
+                  title="Remove"
+                >
+                  {b.title} ×
+                </Chip>
+              );
+            })}
+            {availableAdditional.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => {
+                  addAdditional(e.target.value);
+                  e.currentTarget.value = "";
+                }}
+                className="h-7 rounded-md border bg-background px-2 text-xs"
+              >
+                <option value="">+ Add beat</option>
+                {availableAdditional.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.title}
+                  </option>
+                ))}
+              </select>
+            )}
+            {additionalIds.length === 0 && availableAdditional.length === 0 && (
+              <span className="text-xs text-muted-foreground">None</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }
 

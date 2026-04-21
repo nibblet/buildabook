@@ -23,6 +23,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { SpineData } from "@/lib/spine";
 import { NovelSpine } from "@/components/novel-spine";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const WRITING_ROUTES = ["/scenes/", "/freeform"];
 
@@ -61,25 +67,27 @@ export function AppShell({
   );
 
   return (
-    <div className="flex min-h-screen" data-mode={mode}>
+    <TooltipProvider delayDuration={150}>
+    <div className="flex h-screen overflow-hidden" data-mode={mode}>
       {showSpine && !focusMode && (
-        <aside className="hidden w-72 shrink-0 border-r bg-muted/30 md:flex md:flex-col transition-all duration-[420ms] [transition-timing-function:cubic-bezier(0.2,0,0,1)]">
-          <SidebarHeader title={projectTitle} />
-          <StudioNav />
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {spine ? (
-              <NovelSpine spine={spine} />
-            ) : (
-              <p className="p-3 text-sm text-muted-foreground">
-                Set up your book to see the spine.
-              </p>
-            )}
-          </div>
-          <SidebarFooter userEmail={userEmail} isAdmin={isAdmin} />
-        </aside>
+        <>
+          <NavRail userEmail={userEmail} isAdmin={isAdmin} />
+          <aside className="hidden w-64 shrink-0 border-r bg-muted/30 md:flex md:flex-col transition-all duration-[420ms] [transition-timing-function:cubic-bezier(0.2,0,0,1)]">
+            <SidebarHeader title={projectTitle} />
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              {spine ? (
+                <NovelSpine spine={spine} />
+              ) : (
+                <p className="p-3 text-sm text-muted-foreground">
+                  Set up your book to see the spine.
+                </p>
+              )}
+            </div>
+          </aside>
+        </>
       )}
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex h-full min-w-0 flex-1 flex-col">
         {showSpine && !focusMode && (
           <header className="flex items-center gap-2 border-b bg-background/80 px-3 py-2 backdrop-blur md:hidden">
             <Button
@@ -119,9 +127,83 @@ export function AppShell({
           </div>
         )}
 
-        <main className="min-h-0 flex-1">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
+    </TooltipProvider>
+  );
+}
+
+function NavRail({
+  userEmail,
+  isAdmin,
+}: {
+  userEmail: string;
+  isAdmin: boolean;
+}) {
+  const pathname = usePathname();
+  return (
+    <aside className="hidden w-14 shrink-0 flex-col items-center border-r bg-muted/40 py-2 md:flex">
+      <nav className="flex flex-1 flex-col items-center gap-1">
+        {STUDIO_LINKS.map(({ href, label, icon: Icon, alsoActiveOn }) => {
+          const matchesSelf =
+            href === "/"
+              ? pathname === "/"
+              : pathname === href || pathname.startsWith(`${href}/`);
+          const matchesAlias = (alsoActiveOn ?? []).some(
+            (alias) => pathname === alias || pathname.startsWith(`${alias}/`),
+          );
+          const active = matchesSelf || matchesAlias;
+          return (
+            <Tooltip key={href}>
+              <TooltipTrigger asChild>
+                <Link
+                  href={href}
+                  aria-label={label}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                    active && "bg-accent text-foreground",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{label}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </nav>
+      <div className="flex flex-col items-center gap-1 border-t pt-2">
+        {isAdmin && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/admin"
+                aria-label="Admin"
+                className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Shield className="h-4 w-4" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Admin</TooltipContent>
+          </Tooltip>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <form action="/auth/signout" method="post">
+              <button
+                type="submit"
+                aria-label={`Sign out ${userEmail}`}
+                className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
+          </TooltipTrigger>
+          <TooltipContent side="right">Sign out ({userEmail})</TooltipContent>
+        </Tooltip>
+      </div>
+    </aside>
   );
 }
 
@@ -210,36 +292,3 @@ function StudioNav({ className }: { className?: string }) {
   );
 }
 
-function SidebarFooter({
-  userEmail,
-  isAdmin,
-}: {
-  userEmail: string;
-  isAdmin: boolean;
-}) {
-  return (
-    <div className="border-t p-3 text-xs">
-      <div className="flex items-center justify-between">
-        <span className="truncate text-muted-foreground">{userEmail}</span>
-        <form action="/auth/signout" method="post">
-          <button
-            className={cn(
-              "inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <LogOut className="h-3 w-3" />
-            Sign out
-          </button>
-        </form>
-      </div>
-      {isAdmin && (
-        <Link
-          href="/admin"
-          className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
-        >
-          <Shield className="h-3 w-3" /> Admin
-        </Link>
-      )}
-    </div>
-  );
-}

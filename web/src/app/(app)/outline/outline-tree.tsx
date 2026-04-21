@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import type { Character, Scene } from "@/lib/supabase/types";
 import type { SpineBeat, SpineChapter, SpineData } from "@/lib/spine";
 
 type StatusFilter = "all" | "planned" | "drafting" | "done";
+type OutlineView = "linear" | "beat";
+const VIEW_STORAGE_KEY = "bab:outline-view";
 
 type ChaptersForBeat = {
   beat: SpineBeat;
@@ -27,6 +29,23 @@ export function OutlineTree({
   const [povFilter, setPovFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [view, setView] = useState<OutlineView>("linear");
+
+  useEffect(() => {
+    const stored = typeof window !== "undefined"
+      ? window.localStorage.getItem(VIEW_STORAGE_KEY)
+      : null;
+    if (stored === "linear" || stored === "beat") setView(stored);
+  }, []);
+
+  const updateView = (v: OutlineView) => {
+    setView(v);
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, v);
+    } catch {
+      // ignore
+    }
+  };
 
   const characterById = useMemo(
     () => new Map(characters.map((c) => [c.id, c.name])),
@@ -49,6 +68,22 @@ export function OutlineTree({
       }));
       const act = beat.act ?? 1;
       (acts[act] ||= []).push({ beat, chapters });
+    }
+    return acts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spine, povFilter, statusFilter]);
+
+  // Linear: chapters grouped by act (via primary beat's act).
+  const linearByAct = useMemo(() => {
+    const beatActById = new Map(spine.beats.map((b) => [b.id, b.act ?? 1]));
+    const acts: Record<number, SpineChapter[]> = { 1: [], 2: [], 3: [] };
+    for (const c of spine.chapters) {
+      const primaryBeatId = c.beat_ids?.[0];
+      const act = (primaryBeatId && beatActById.get(primaryBeatId)) || 1;
+      acts[(act as 1 | 2 | 3)].push({
+        ...c,
+        scenes: c.scenes.filter(filteredScene),
+      });
     }
     return acts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,33 +148,85 @@ export function OutlineTree({
             <option value="done">Done</option>
           </select>
         </div>
-        <div className="ml-auto text-xs text-muted-foreground">
-          {formatNumber(totalWords)} / {formatNumber(targetWordcount)} words
-          {targetWordcount > 0 && <span className="ml-2">({pct}%)</span>}
+        <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="inline-flex rounded-md border bg-background p-0.5">
+            {(["linear", "beat"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => updateView(v)}
+                className={cn(
+                  "rounded-sm px-2 py-1 text-xs transition-colors",
+                  view === v
+                    ? "bg-accent font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {v === "linear" ? "Linear" : "By beat"}
+              </button>
+            ))}
+          </div>
+          <span>
+            {formatNumber(totalWords)} / {formatNumber(targetWordcount)} words
+            {targetWordcount > 0 && <span className="ml-2">({pct}%)</span>}
+          </span>
         </div>
       </div>
 
-      {[1, 2, 3].map((act) => {
-        const rows = byAct[act] ?? [];
-        if (rows.length === 0) return null;
-        return (
-          <section key={act} className="space-y-2">
-            <h2 className="font-serif text-lg font-semibold">Act {act}</h2>
-            <ul className="space-y-2">
-              {rows.map(({ beat, chapters }) => (
-                <BeatRow
-                  key={beat.id}
-                  beat={beat}
-                  chapters={chapters}
-                  collapsed={collapsed}
-                  toggle={toggle}
-                  characterById={characterById}
-                />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      {view === "linear"
+        ? [1, 2, 3].map((act) => {
+            const chapters = linearByAct[act] ?? [];
+            if (chapters.length === 0) return null;
+            return (
+              <section key={act} className="space-y-2">
+                <h2 className="font-serif text-lg font-semibold">Act {act}</h2>
+                <ul className="space-y-2">
+                  {chapters.map((c) => (
+                    <li key={c.id} className="rounded-md border bg-card p-3">
+                      <ChapterHeader
+                        chapter={c}
+                        collapsed={collapsed}
+                        toggle={toggle}
+                        characterById={characterById}
+                      />
+                      {!collapsed.has(`c:${c.id}`) && c.scenes.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {c.scenes.map((s) => (
+                            <SceneRow
+                              key={s.id}
+                              scene={s}
+                              characterById={characterById}
+                            />
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })
+        : [1, 2, 3].map((act) => {
+            const rows = byAct[act] ?? [];
+            if (rows.length === 0) return null;
+            return (
+              <section key={act} className="space-y-2">
+                <h2 className="font-serif text-lg font-semibold">Act {act}</h2>
+                <ul className="space-y-2">
+                  {rows.map(({ beat, chapters }) => (
+                    <BeatRow
+                      key={beat.id}
+                      beat={beat}
+                      chapters={chapters}
+                      collapsed={collapsed}
+                      toggle={toggle}
+                      characterById={characterById}
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
 
       {unassignedChapters.length > 0 && (
         <section className="space-y-2">
