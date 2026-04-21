@@ -282,3 +282,19 @@ export type WikiDocument = {
   compiled_at: string;
   created_at: string;
 };
+
+export type Reflection = {
+  id: string;
+  project_id: string;
+  kind: string;
+  target_id: string | null;
+  body: string;
+  input_signature: string;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number | null;
+  ai_interaction_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
