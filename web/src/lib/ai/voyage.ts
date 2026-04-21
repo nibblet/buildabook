@@ -1,3 +1,8 @@
+/**
+ * @deprecated Phase 2 RAG is retired in favor of compiled wiki context.
+ * This module is kept for historical data; no new code should import it.
+ * A future cleanup migration may drop the `scene_chunks` table entirely.
+ */
 import { env } from "@/lib/env";
 
 /** voyage-3 → 1024 dims — matches `scene_chunks.embedding vector(1024)`. */

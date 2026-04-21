@@ -1,3 +1,8 @@
+/**
+ * @deprecated Phase 2 RAG is retired in favor of compiled wiki context.
+ * This module is kept for historical data; no new code should import it.
+ * A future cleanup migration may drop the `scene_chunks` table entirely.
+ */
 import { voyageEmbed } from "@/lib/ai/voyage";
 import { stripHtml } from "@/lib/html";
 import { supabaseServer } from "@/lib/supabase/server";
