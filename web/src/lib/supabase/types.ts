@@ -9,7 +9,14 @@ export type PersonaKey =
   | "analyst"
   | "extract"
   | "factcheck"
-  | "continuity_editor";
+  | "continuity_editor"
+  | "compile_character"
+  | "compile_world"
+  | "compile_relationship"
+  | "compile_index"
+  | "reflect_session"
+  | "reflect_chapter"
+  | "reflect_story_so_far";
 
 export type Project = {
   id: string;
@@ -249,5 +256,29 @@ export type AiInteraction = {
   input_tokens: number | null;
   output_tokens: number | null;
   cost_usd: number | null;
+  created_at: string;
+};
+
+export type WikiDocType =
+  | "character"
+  | "world"
+  | "relationship"
+  | "thread"
+  | "storyline"
+  | "index";
+
+export type WikiDocument = {
+  id: string;
+  project_id: string;
+  doc_type: WikiDocType;
+  doc_key: string;
+  version: number;
+  status: "current" | "superseded";
+  title: string | null;
+  body_md: string;
+  source_signature: string | null;
+  source_refs: Record<string, unknown>;
+  model: string | null;
+  compiled_at: string;
   created_at: string;
 };

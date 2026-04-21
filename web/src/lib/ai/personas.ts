@@ -7,7 +7,16 @@ import {
 
 export type CorePersonaKey = Exclude<
   PersonaKey,
-  "extract" | "factcheck" | "continuity_editor"
+  | "extract"
+  | "factcheck"
+  | "continuity_editor"
+  | "compile_character"
+  | "compile_world"
+  | "compile_relationship"
+  | "compile_index"
+  | "reflect_session"
+  | "reflect_chapter"
+  | "reflect_story_so_far"
 >;
 
 export type PersonaConfig = {
