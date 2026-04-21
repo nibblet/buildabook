@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
+import { DrawerHost, DRAWER_ROUTES, useDrawerNav } from "@/components/drawer-host";
 import {
   Menu,
   LogOut,
@@ -51,6 +52,8 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const embedMode = searchParams?.get("embed") === "1";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const showSpine = !pathname.startsWith("/onboarding");
   const mode = getMode(pathname);
@@ -65,6 +68,10 @@ export function AppShell({
     () => document.body.getAttribute("data-focus-mode") === "true",
     () => false,
   );
+
+  if (embedMode) {
+    return <main className="min-h-screen">{children}</main>;
+  }
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -129,6 +136,7 @@ export function AppShell({
 
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
+      <DrawerHost />
     </div>
     </TooltipProvider>
   );
@@ -142,38 +150,71 @@ function NavRail({
   isAdmin: boolean;
 }) {
   const pathname = usePathname();
+  const { open: openDrawer } = useDrawerNav();
+  const drawerKeys = new Set(Object.keys(DRAWER_ROUTES));
+
+  const renderItem = (link: StudioLink) => {
+    const { href, label, icon: Icon, alsoActiveOn } = link;
+    const matchesSelf =
+      href === "/"
+        ? pathname === "/"
+        : pathname === href || pathname.startsWith(`${href}/`);
+    const matchesAlias = (alsoActiveOn ?? []).some(
+      (alias) => pathname === alias || pathname.startsWith(`${alias}/`),
+    );
+    const active = matchesSelf || matchesAlias;
+    const drawerKey = href.replace(/^\//, "");
+    const isDrawer = drawerKeys.has(drawerKey);
+    const className = cn(
+      "flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+      active && "bg-accent text-foreground",
+    );
+    return (
+      <Tooltip key={href}>
+        <TooltipTrigger asChild>
+          {isDrawer ? (
+            <button
+              type="button"
+              aria-label={label}
+              onClick={() => openDrawer(drawerKey as keyof typeof DRAWER_ROUTES)}
+              className={className}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ) : (
+            <Link href={href} aria-label={label} className={className}>
+              <Icon className="h-4 w-4" />
+            </Link>
+          )}
+        </TooltipTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const feedbackLink: StudioLink = {
+    href: "/feedback",
+    label: "Feedback",
+    icon: MessageSquare,
+  };
+  const settingsLink: StudioLink = {
+    href: "/project/settings",
+    label: "Settings",
+    icon: Settings,
+  };
+
   return (
     <aside className="hidden w-14 shrink-0 flex-col items-center border-r bg-muted/40 py-2 md:flex">
       <nav className="flex flex-1 flex-col items-center gap-1">
-        {STUDIO_LINKS.map(({ href, label, icon: Icon, alsoActiveOn }) => {
-          const matchesSelf =
-            href === "/"
-              ? pathname === "/"
-              : pathname === href || pathname.startsWith(`${href}/`);
-          const matchesAlias = (alsoActiveOn ?? []).some(
-            (alias) => pathname === alias || pathname.startsWith(`${alias}/`),
-          );
-          const active = matchesSelf || matchesAlias;
-          return (
-            <Tooltip key={href}>
-              <TooltipTrigger asChild>
-                <Link
-                  href={href}
-                  aria-label={label}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                    active && "bg-accent text-foreground",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">{label}</TooltipContent>
-            </Tooltip>
-          );
-        })}
+        {NAV_GROUPS.map((group, idx) => (
+          <div key={idx} className="flex flex-col items-center gap-1">
+            {idx > 0 && <div className="my-1 h-px w-6 bg-border" />}
+            {group.map(renderItem)}
+          </div>
+        ))}
       </nav>
       <div className="flex flex-col items-center gap-1 border-t pt-2">
+        {renderItem(feedbackLink)}
         {isAdmin && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -188,6 +229,7 @@ function NavRail({
             <TooltipContent side="right">Admin</TooltipContent>
           </Tooltip>
         )}
+        {renderItem(settingsLink)}
         <Tooltip>
           <TooltipTrigger asChild>
             <form action="/auth/signout" method="post">
@@ -230,25 +272,35 @@ function SidebarHeader({ title }: { title: string }) {
   );
 }
 
-const STUDIO_LINKS: ReadonlyArray<{
+type StudioLink = {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   alsoActiveOn?: readonly string[];
-}> = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/characters", label: "Characters", icon: Users },
-  { href: "/world", label: "World", icon: Globe },
-  { href: "/relationships", label: "Relationships", icon: Heart },
-  { href: "/scratchpad", label: "Scratchpad", icon: Lightbulb },
-  {
-    href: "/spine",
-    label: "Structure",
-    icon: BookMarked,
-    alsoActiveOn: ["/outline", "/plan"],
-  },
-  { href: "/manuscript", label: "Manuscript", icon: ScrollText },
-  { href: "/arc-tracker", label: "Arc tracker", icon: GitBranch },
+};
+
+const NAV_GROUPS: ReadonlyArray<ReadonlyArray<StudioLink>> = [
+  [
+    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    {
+      href: "/spine",
+      label: "Structure",
+      icon: BookMarked,
+      alsoActiveOn: ["/outline", "/plan"],
+    },
+    { href: "/scratchpad", label: "Scratchpad", icon: Lightbulb },
+  ],
+  [
+    { href: "/world", label: "World", icon: Globe },
+    { href: "/characters", label: "Characters", icon: Users },
+    { href: "/relationships", label: "Relationships", icon: Heart },
+    { href: "/arc-tracker", label: "Arc tracker", icon: GitBranch },
+  ],
+  [{ href: "/manuscript", label: "Manuscript", icon: ScrollText }],
+];
+
+const STUDIO_LINKS: ReadonlyArray<StudioLink> = [
+  ...NAV_GROUPS.flat(),
   { href: "/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/project/settings", label: "Settings", icon: Settings },
 ];
