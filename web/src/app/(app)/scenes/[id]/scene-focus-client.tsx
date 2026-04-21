@@ -22,7 +22,7 @@ import {
 import { SceneBlueprintSection } from "./scene-blueprint";
 import { parseSceneBlueprint } from "@/lib/scene-blueprint";
 import { cn, formatNumber } from "@/lib/utils";
-import { stripHtml } from "@/lib/html";
+import { prosePlainFingerprint, stripHtml } from "@/lib/html";
 import { idsMatchingMentionsInText } from "@/lib/mentions/character-mention-backfill";
 import {
   type WritingProfileId,
@@ -98,6 +98,8 @@ export function SceneFocusClient({
   const [, startTransition] = useTransition();
   const dirtyRef = useRef(false);
   const metaDirtyRef = useRef(false);
+  /** Matches last persisted prose (plain fingerprint); avoids autosave + AI pipeline when TipTap/normalization yields no real change. */
+  const lastPersistedFpRef = useRef(prosePlainFingerprint(scene.content ?? ""));
 
   const povCharacter = characters.find((c) => c.id === scene.pov_character_id);
   const sceneBeats = beats.filter((b) => beatIds.includes(b.id));
@@ -122,9 +124,15 @@ export function SceneFocusClient({
 
   const persist = useCallback(
     async (html: string, words: number) => {
+      const fp = prosePlainFingerprint(html);
+      if (fp === lastPersistedFpRef.current) {
+        setSaveState("saved");
+        return;
+      }
       setSaveState("saving");
       try {
         await saveSceneContent(scene.id, html, words);
+        lastPersistedFpRef.current = fp;
         setSaveState("saved");
         setContinuityRefreshKey((k) => k + 1);
       } catch {
@@ -134,9 +142,17 @@ export function SceneFocusClient({
     [scene.id],
   );
 
+  useEffect(() => {
+    lastPersistedFpRef.current = prosePlainFingerprint(scene.content ?? "");
+  }, [scene.id, scene.content]);
+
   // Debounced autosave on prose change.
   useEffect(() => {
     if (!dirtyRef.current) return;
+    if (prosePlainFingerprint(contentHtml) === lastPersistedFpRef.current) {
+      dirtyRef.current = false;
+      return;
+    }
     const t = setTimeout(() => {
       dirtyRef.current = false;
       startTransition(() => persist(contentHtml, wordcount));
@@ -166,6 +182,10 @@ export function SceneFocusClient({
     void _text;
     setContentHtml(html);
     setWordcount(words);
+    const fp = prosePlainFingerprint(html);
+    if (fp === lastPersistedFpRef.current) {
+      return;
+    }
     dirtyRef.current = true;
     setSaveState("idle");
   }

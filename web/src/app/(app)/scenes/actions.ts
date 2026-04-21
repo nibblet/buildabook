@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { firePostSaveScenePipeline } from "@/lib/ai/post-save-scene";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
+import { prosePlainFingerprint } from "@/lib/html";
 import { countWords } from "@/lib/utils";
 import {
   parseSceneBlueprint,
@@ -63,7 +64,12 @@ export async function saveSceneContent(
   }
 
   revalidatePath(`/scenes/${sceneId}`);
-  firePostSaveScenePipeline(sceneId);
+
+  const proseChanged =
+    prosePlainFingerprint(previousContent) !== prosePlainFingerprint(nextContent);
+  if (proseChanged) {
+    firePostSaveScenePipeline(sceneId);
+  }
 }
 
 export async function moveSceneToChapter(sceneId: string, targetChapterId: string) {
