@@ -298,3 +298,13 @@ export type Reflection = {
   created_at: string;
   updated_at: string;
 };
+
+export type AiLogEntry = {
+  id: string;
+  project_id: string | null;
+  kind: string;
+  summary: string;
+  detail: Record<string, unknown>;
+  ai_interaction_id: string | null;
+  created_at: string;
+};
