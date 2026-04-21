@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   aiReadyForWritingProfile,
   askModel,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/deployment/writing-profile";
 import { getOrCreateProject } from "@/lib/projects";
 import { stripHtml } from "@/lib/html";
+import { getOrGenerateReflection } from "@/lib/ai/reflections";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Scene } from "@/lib/supabase/types";
 
@@ -50,29 +52,52 @@ export async function runChapterDebrief(
     .join("\n\n---\n\n");
 
   if (prose.length < 60) {
-    return { ok: true, text: "Add more prose to this chapter before running a debrief." };
+    return {
+      ok: true,
+      text: "Add more prose to this chapter before running a debrief.",
+    };
   }
 
   const chTitle =
-    chapter.title?.trim() ||
-    `Chapter ${(chapter.order_index ?? 0) + 1}`;
+    chapter.title?.trim() || `Chapter ${(chapter.order_index ?? 0) + 1}`;
+
+  const signature = createHash("sha256").update(prose).digest("hex");
 
   try {
-    const { text } = await askModel({
-      persona: "profiler",
-      system:
-        "You are a developmental editor. Write two short paragraphs: (1) what shifts for the reader in this chapter emotionally and plot-wise, (2) one craft strength and one optional improvement. Plain language. No bullets.",
-      user: `Chapter: ${chTitle}\n\nScene prose:\n${prose.slice(0, 14000)}`,
-      model: resolveModelFromProject(project.writing_profile, "quick"),
-      temperature: 0.35,
-      maxTokens: 500,
+    const body = await getOrGenerateReflection({
       projectId: project.id,
-      contextType: "chapter_debrief",
-      contextId: chapterId,
-      writingProfile: wp,
+      kind: "chapter_debrief",
+      targetId: chapterId,
+      newSignature: signature,
+      generate: async () => {
+        const model = resolveModelFromProject(
+          project.writing_profile,
+          "quick",
+        );
+        const { text, inputTokens, outputTokens, costUsd } = await askModel({
+          persona: "reflect_chapter",
+          system:
+            "You are a developmental editor. Write two short paragraphs: (1) what shifts for the reader in this chapter emotionally and plot-wise, (2) one craft strength and one optional improvement. Plain language. No bullets.",
+          user: `Chapter: ${chTitle}\n\nScene prose:\n${prose.slice(0, 14000)}`,
+          model,
+          temperature: 0.35,
+          maxTokens: 500,
+          projectId: project.id,
+          contextType: "chapter_debrief",
+          contextId: chapterId,
+          writingProfile: wp,
+        });
+        return {
+          body: text.trim(),
+          model,
+          inputTokens,
+          outputTokens,
+          costUsd,
+          aiInteractionId: null,
+        };
+      },
     });
-
-    return { ok: true, text: text.trim() };
+    return { ok: true, text: body };
   } catch (e) {
     return {
       ok: false,
