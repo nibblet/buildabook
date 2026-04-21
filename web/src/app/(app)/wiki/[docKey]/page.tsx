@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { getCurrentDoc } from "@/lib/wiki/repo";
+import { extractWikiLinks } from "@/lib/wiki/links";
 import { getOrCreateProject } from "@/lib/projects";
+import { supabaseServer } from "@/lib/supabase/server";
 import type { WikiDocType } from "@/lib/supabase/types";
 
 const VALID_TYPES: WikiDocType[] = [
@@ -29,8 +31,28 @@ export default async function WikiDocPage({
   const docType = (type as WikiDocType) ?? "character";
   if (!VALID_TYPES.includes(docType)) notFound();
 
-  const doc = await getCurrentDoc(project.id, docType, decodeURIComponent(docKey));
+  const doc = await getCurrentDoc(
+    project.id,
+    docType,
+    decodeURIComponent(docKey),
+  );
   if (!doc) notFound();
+
+  const supabase = await supabaseServer();
+  const { data: all } = await supabase
+    .from("wiki_documents")
+    .select("id, doc_type, doc_key, title, body_md")
+    .eq("project_id", project.id)
+    .eq("status", "current");
+
+  const target = (doc.title || "").toLowerCase();
+  const backlinks = (all ?? [])
+    .filter((d) => d.id !== doc.id)
+    .filter((d) => {
+      if (!target) return false;
+      const links = extractWikiLinks(d.body_md).map((n) => n.toLowerCase());
+      return links.includes(target);
+    });
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-6 md:p-8">
@@ -52,6 +74,27 @@ export default async function WikiDocPage({
       <pre className="whitespace-pre-wrap rounded-md border bg-card p-4 text-sm leading-relaxed">
         {doc.body_md}
       </pre>
+
+      {backlinks.length > 0 ? (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">Referenced by</h2>
+          <ul className="space-y-1 text-sm">
+            {backlinks.map((b) => (
+              <li key={b.id}>
+                <Link
+                  href={`/wiki/${encodeURIComponent(b.doc_key)}?type=${b.doc_type}`}
+                  className="underline-offset-4 hover:underline"
+                >
+                  {b.title || b.doc_key}
+                </Link>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {b.doc_type}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
