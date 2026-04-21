@@ -1,3 +1,4 @@
+import { logAiActivity } from "@/lib/ai/log";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Reflection } from "@/lib/supabase/types";
 
@@ -58,7 +59,19 @@ export async function getOrGenerateReflection(args: {
     generate: args.generate,
   });
 
-  if (result.hit) return result.body;
+  if (result.hit) {
+    await logAiActivity({
+      projectId: args.projectId,
+      kind: `reflect.${args.kind}`,
+      summary: `Cache hit for ${args.kind}`,
+      detail: {
+        target_id: args.targetId,
+        hit: true,
+        signature: args.newSignature.slice(0, 12),
+      },
+    });
+    return result.body;
+  }
 
   const g = result.generated!;
 
@@ -89,6 +102,17 @@ export async function getOrGenerateReflection(args: {
       ai_interaction_id: g.aiInteractionId,
     });
   }
+
+  await logAiActivity({
+    projectId: args.projectId,
+    kind: `reflect.${args.kind}`,
+    summary: `Generated new ${args.kind}`,
+    detail: {
+      target_id: args.targetId,
+      hit: false,
+      signature: args.newSignature.slice(0, 12),
+    },
+  });
 
   return g.body;
 }
