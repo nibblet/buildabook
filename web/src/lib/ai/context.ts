@@ -13,6 +13,19 @@ import type {
   WorldElement,
 } from "@/lib/supabase/types";
 
+export type WikiDocForContext = {
+  doc_type:
+    | "character"
+    | "world"
+    | "relationship"
+    | "thread"
+    | "storyline"
+    | "index";
+  doc_key: string;
+  title: string | null;
+  body_md: string;
+};
+
 export type ContextBundle = {
   project: Project;
   tropes: string[];
@@ -29,6 +42,8 @@ export type ContextBundle = {
   ragContinuity?: string | null;
   /** Extracted continuity claims (confirmed vs tentative). */
   continuityFacts?: string | null;
+  /** If present, used INSTEAD of raw characters/worldElements/openThreads. */
+  wikiDocs?: WikiDocForContext[];
 };
 
 function compactCharacter(c: Character): string {
@@ -63,6 +78,7 @@ export function buildContext(bundle: ContextBundle): string {
     priorSceneSummary,
     ragContinuity,
     continuityFacts,
+    wikiDocs,
   } = bundle;
 
   const defaultStyle =
@@ -98,23 +114,75 @@ export function buildContext(bundle: ContextBundle): string {
   }
   lines.push("");
 
-  if (characters.length) {
-    lines.push("CHARACTERS IN SCOPE");
-    lines.push(characters.map(compactCharacter).join("\n"));
-    lines.push("");
-  }
+  if (wikiDocs?.length) {
+    const byType = new Map<string, WikiDocForContext[]>();
+    for (const d of wikiDocs) {
+      const arr = byType.get(d.doc_type) ?? [];
+      arr.push(d);
+      byType.set(d.doc_type, arr);
+    }
 
-  if (worldElements.length) {
-    lines.push("WORLD FACTS IN SCOPE");
-    lines.push(worldElements.map(compactWorldElement).join("\n"));
-    lines.push("");
-  }
+    const storyline = byType
+      .get("index")
+      ?.find((d) => d.doc_key === "storyline");
+    if (storyline) {
+      lines.push("STORYLINE (compiled)");
+      lines.push(storyline.body_md.trim());
+      lines.push("");
+    }
 
-  const unresolved = openThreads.filter((t) => !t.resolved);
-  if (unresolved.length) {
-    lines.push("OPEN THREADS (do not contradict; may pay off)");
-    for (const t of unresolved) lines.push(`- ${t.question}`);
-    lines.push("");
+    const chars = byType.get("character") ?? [];
+    if (chars.length) {
+      lines.push("CHARACTERS (compiled)");
+      for (const d of chars) {
+        lines.push(d.body_md.trim());
+        lines.push("");
+      }
+    }
+
+    const world = byType.get("world") ?? [];
+    if (world.length) {
+      lines.push("WORLD (compiled)");
+      for (const d of world) {
+        lines.push(d.body_md.trim());
+        lines.push("");
+      }
+    }
+
+    const rels = byType.get("relationship") ?? [];
+    if (rels.length) {
+      lines.push("RELATIONSHIPS (compiled)");
+      for (const d of rels) {
+        lines.push(d.body_md.trim());
+        lines.push("");
+      }
+    }
+
+    const threads = byType.get("index")?.find((d) => d.doc_key === "threads");
+    if (threads) {
+      lines.push("OPEN THREADS (do not contradict; may pay off)");
+      lines.push(threads.body_md.trim());
+      lines.push("");
+    }
+  } else {
+    if (characters.length) {
+      lines.push("CHARACTERS IN SCOPE");
+      lines.push(characters.map(compactCharacter).join("\n"));
+      lines.push("");
+    }
+
+    if (worldElements.length) {
+      lines.push("WORLD FACTS IN SCOPE");
+      lines.push(worldElements.map(compactWorldElement).join("\n"));
+      lines.push("");
+    }
+
+    const unresolved = openThreads.filter((t) => !t.resolved);
+    if (unresolved.length) {
+      lines.push("OPEN THREADS (do not contradict; may pay off)");
+      for (const t of unresolved) lines.push(`- ${t.question}`);
+      lines.push("");
+    }
   }
 
   if (currentBeat) {
