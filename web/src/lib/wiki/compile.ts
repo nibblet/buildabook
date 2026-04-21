@@ -1,3 +1,4 @@
+import { logAiActivity } from "@/lib/ai/log";
 import { compileCharacter } from "@/lib/wiki/compilers/character";
 import { compileRelationship } from "@/lib/wiki/compilers/relationship";
 import {
@@ -292,6 +293,13 @@ export async function compileProjectWiki(
     null,
   );
   report.storyline = storylineRes.action === "inserted" ? "inserted" : "skipped";
+
+  await logAiActivity({
+    projectId,
+    kind: "compile.project",
+    summary: `Compiled wiki: ${report.characters.inserted} chars / ${report.world.inserted} world / ${report.relationships.inserted} rels / threads=${report.threads} / storyline=${report.storyline}`,
+    detail: report as unknown as Record<string, unknown>,
+  });
 
   return report;
 }
