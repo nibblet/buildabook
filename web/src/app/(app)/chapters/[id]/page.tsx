@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { formatNumber } from "@/lib/utils";
 import { AddSceneButton } from "./add-scene-button";
+import { BulkAddScenesButton } from "./bulk-add-scenes-button";
 import { ChapterChapterToolbar } from "./chapter-toolbar";
 import { ChapterScenesSortable } from "./chapter-scenes-sortable";
 import type {
@@ -126,7 +127,10 @@ export default async function ChapterPage({
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Scenes
           </h2>
-          <AddSceneButton chapterId={chapter.id} />
+          <div className="flex items-center gap-2">
+            <BulkAddScenesButton chapterId={chapter.id} />
+            <AddSceneButton chapterId={chapter.id} />
+          </div>
         </div>
 
         {((scenes ?? []) as Scene[]).length === 0 ? (

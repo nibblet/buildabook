@@ -17,6 +17,7 @@ import {
   GitBranch,
   Settings,
   MessageSquare,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -157,6 +158,7 @@ const STUDIO_LINKS: ReadonlyArray<{
   { href: "/characters", label: "Characters", icon: Users },
   { href: "/world", label: "World", icon: Globe },
   { href: "/relationships", label: "Relationships", icon: Heart },
+  { href: "/scratchpad", label: "Scratchpad", icon: Lightbulb },
   {
     href: "/spine",
     label: "Structure",
