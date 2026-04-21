@@ -19,6 +19,8 @@ import {
 } from "@/lib/ai/inline-assist";
 import { ContinuityGutter } from "@/components/continuity-gutter";
 import type { ContinuityDial } from "@/lib/ai/continuity/dial";
+import { WikiLink } from "@/lib/tiptap/wiki-link-node";
+import { wikiLinkSuggestion } from "@/lib/tiptap/wiki-link-suggestion";
 
 export type ProseEditorHandle = {
   insertAtCursor: (text: string) => void;
@@ -42,6 +44,7 @@ type Props = {
   enableContinuityGutter?: boolean;
   continuityDial?: ContinuityDial;
   continuityRefreshKey?: number;
+  enableWikiLinks?: boolean;
 };
 
 const INLINE_ACTIONS: { mode: InlineAssistMode; label: string }[] = [
@@ -66,6 +69,7 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       enableContinuityGutter,
       continuityDial,
       continuityRefreshKey,
+      enableWikiLinks,
     },
     ref,
   ) {
@@ -80,6 +84,9 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
         Placeholder.configure({
           placeholder: placeholder || "Start writing…",
         }),
+        ...(enableWikiLinks
+          ? [WikiLink.configure({ suggestion: wikiLinkSuggestion })]
+          : []),
       ],
       content: initialContent || "",
       editorProps: {

@@ -367,6 +367,7 @@ export function SceneFocusClient({
             chapterId={chapter.id}
             enableInlineAssist
             enableContinuityGutter
+            enableWikiLinks
             continuityDial={continuityDial}
             continuityRefreshKey={continuityRefreshKey}
             initialContent={scene.content ?? ""}
