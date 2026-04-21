@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { rebuildSceneChunks } from "@/lib/ai/scene-chunks";
 import { replaceCharacterNameInHtml } from "@/lib/characters/replace-name-in-prose";
 import {
   recountChapterCharacterMentions,
@@ -112,8 +111,6 @@ export async function updateCharacter(
             updated_at: new Date().toISOString(),
           })
           .eq("id", scene.id);
-
-        await rebuildSceneChunks(scene.id);
       }
 
       for (const cid of proseTouchedChapters) {
