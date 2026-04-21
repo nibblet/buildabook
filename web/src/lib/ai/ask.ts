@@ -9,7 +9,7 @@ import {
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { buildContext } from "@/lib/ai/context";
 import { fetchContinuityFactsForScene } from "@/lib/ai/continuity/context-block";
-import { retrieveRagContinuity } from "@/lib/ai/rag";
+import { listCurrentDocs } from "@/lib/wiki/repo";
 import { env } from "@/lib/env";
 import { getOrCreateProject } from "@/lib/projects";
 import type {
@@ -46,25 +46,24 @@ export async function askPersona(input: AskInput): Promise<{
     const supabase = await supabaseServer();
 
     const [
-      { data: chars },
-      { data: world },
-      { data: threads },
       { data: samples },
       { data: tropes },
+      wikiDocsAll,
     ] = await Promise.all([
-      supabase.from("characters").select("*").eq("project_id", project.id),
-      supabase.from("world_elements").select("*").eq("project_id", project.id),
-      supabase
-        .from("open_threads")
-        .select("*")
-        .eq("project_id", project.id)
-        .eq("resolved", false),
       supabase.from("style_samples").select("*").eq("project_id", project.id),
       supabase
         .from("project_tropes")
         .select("trope")
         .eq("project_id", project.id),
+      listCurrentDocs(project.id),
     ]);
+
+    const wikiDocs = wikiDocsAll.map((d) => ({
+      doc_type: d.doc_type,
+      doc_key: d.doc_key,
+      title: d.title,
+      body_md: d.body_md,
+    }));
 
     let currentScene: Scene | null = null;
     let currentChapterTitle: string | null = null;
@@ -110,21 +109,6 @@ export async function askPersona(input: AskInput): Promise<{
       if (b) currentBeat = b as Beat;
     }
 
-    let ragContinuity: string | null = null;
-    if (input.sceneId && currentScene?.content) {
-      const plain = currentScene.content
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (plain.length > 55) {
-        ragContinuity = await retrieveRagContinuity({
-          projectId: project.id,
-          excludeSceneId: input.sceneId,
-          queryText: plain.slice(0, 1600),
-        });
-      }
-    }
-
     let continuityFacts: string | null = null;
     if (input.sceneId && env.continuityEditorEnabled()) {
       continuityFacts = await fetchContinuityFactsForScene(
@@ -137,15 +121,15 @@ export async function askPersona(input: AskInput): Promise<{
     const system = buildContext({
       project: project as Project,
       tropes: (tropes ?? []).map((t) => t.trope),
-      characters: (chars ?? []) as Character[],
-      worldElements: (world ?? []) as WorldElement[],
-      openThreads: (threads ?? []) as OpenThread[],
+      characters: [] as Character[],
+      worldElements: [] as WorldElement[],
+      openThreads: [] as OpenThread[],
       styleSamples: (samples ?? []) as StyleSample[],
       currentBeat,
       currentChapterTitle,
       currentScene,
-      ragContinuity,
       continuityFacts,
+      wikiDocs,
     });
 
     const model = resolveModelFromProject(
