@@ -10,6 +10,85 @@ import { getOrCreateProject } from "@/lib/projects";
 import { askModel, resolveModelFromProject } from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 
+export async function updateChapterFields(
+  chapterId: string,
+  fields: {
+    title?: string | null;
+    synopsis?: string | null;
+    status?: "planned" | "drafting" | "done";
+    pov_character_id?: string | null;
+    beat_ids?: string[];
+  },
+) {
+  const project = await getOrCreateProject();
+  if (!project) throw new Error("No project.");
+  const supabase = await supabaseServer();
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("id", chapterId)
+    .eq("project_id", project.id)
+    .maybeSingle();
+  if (!chapter) throw new Error("Chapter not found.");
+
+  const patch: Record<string, unknown> = {};
+  if (Object.prototype.hasOwnProperty.call(fields, "title")) {
+    const t = fields.title;
+    patch.title = typeof t === "string" ? t.trim() || null : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, "synopsis")) {
+    const s = fields.synopsis;
+    patch.synopsis = typeof s === "string" ? s.trim() || null : null;
+  }
+  if (fields.status) patch.status = fields.status;
+  if (Object.prototype.hasOwnProperty.call(fields, "pov_character_id")) {
+    patch.pov_character_id = fields.pov_character_id ?? null;
+  }
+  if (fields.beat_ids) patch.beat_ids = fields.beat_ids;
+
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await supabase
+    .from("chapters")
+    .update(patch)
+    .eq("id", chapterId);
+  if (error) throw error;
+
+  revalidatePath(`/chapters/${chapterId}`);
+  revalidatePath("/plan");
+  revalidatePath("/outline");
+  revalidatePath("/spine");
+  revalidatePath("/manuscript");
+  revalidatePath("/");
+}
+
+export async function deleteChapter(chapterId: string) {
+  const project = await getOrCreateProject();
+  if (!project) throw new Error("No project.");
+  const supabase = await supabaseServer();
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("id", chapterId)
+    .eq("project_id", project.id)
+    .maybeSingle();
+  if (!chapter) throw new Error("Chapter not found.");
+
+  const { error } = await supabase
+    .from("chapters")
+    .delete()
+    .eq("id", chapterId);
+  if (error) throw error;
+
+  revalidatePath("/plan");
+  revalidatePath("/outline");
+  revalidatePath("/spine");
+  revalidatePath("/manuscript");
+  revalidatePath("/");
+}
+
 export async function runChapterFactCheckAction(chapterId: string) {
   const res = await runChapterFactCheck(chapterId);
   revalidatePath(`/chapters/${chapterId}`);

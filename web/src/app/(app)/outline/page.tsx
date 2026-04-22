@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { loadSpine } from "@/lib/spine";
 import { StructureTabs } from "@/components/structure-tabs";
+import { NewChapterButton } from "@/components/new-chapter-button";
 import type { Character } from "@/lib/supabase/types";
 import { OutlineTree } from "./outline-tree";
 
@@ -36,13 +37,17 @@ export default async function OutlinePage() {
             status. Click a scene or chapter to open it.
           </p>
         </div>
-        <StructureTabs />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <StructureTabs />
+          <NewChapterButton projectId={project.id} variant="outline" />
+        </div>
       </header>
 
       <OutlineTree
         spine={spine}
         characters={characters}
         targetWordcount={project.target_wordcount}
+        projectId={project.id}
       />
     </div>
   );

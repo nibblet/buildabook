@@ -9,6 +9,8 @@ import { AddSceneButton } from "./add-scene-button";
 import { BulkAddScenesButton } from "./bulk-add-scenes-button";
 import { ChapterChapterToolbar } from "./chapter-toolbar";
 import { ChapterScenesSortable } from "./chapter-scenes-sortable";
+import { ChapterTitleInline } from "@/components/chapter-title-inline";
+import { ChapterSynopsisInline } from "./chapter-synopsis-inline";
 import type {
   Beat,
   Character,
@@ -82,13 +84,20 @@ export default async function ChapterPage({
     <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-8">
       <header className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-2">
+          <div className="min-w-0 flex-1 space-y-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Chapter
             </p>
-            <h1 className="font-serif text-3xl font-semibold tracking-tight">
-              {chapter.title || `Chapter ${(chapter.order_index ?? 0) + 1}`}
-            </h1>
+            <ChapterTitleInline
+              chapterId={chapter.id}
+              initialTitle={chapter.title}
+              placeholder={`Chapter ${(chapter.order_index ?? 0) + 1}`}
+              variant="heading"
+            />
+            <ChapterSynopsisInline
+              chapterId={chapter.id}
+              initialSynopsis={chapter.synopsis}
+            />
           </div>
           <Link
             href={`/manuscript?chapter=${chapter.id}`}

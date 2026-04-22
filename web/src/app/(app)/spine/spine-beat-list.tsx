@@ -24,9 +24,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import type { Beat } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
+import { NewChapterForBeatButton } from "@/components/new-chapter-button";
 import { reorderBeats, updateBeatFields } from "./actions";
 
-export function SpineBeatList({ beats }: { beats: Beat[] }) {
+export function SpineBeatList({
+  beats,
+  projectId,
+}: {
+  beats: Beat[];
+  projectId: string;
+}) {
   const ids = useMemo(() => beats.map((b) => b.id), [beats]);
   const beatById = useMemo(() => new Map(beats.map((b) => [b.id, b])), [beats]);
 
@@ -63,6 +70,7 @@ export function SpineBeatList({ beats }: { beats: Beat[] }) {
               <SortableBeatCard
                 key={id}
                 beat={b}
+                projectId={projectId}
                 formKey={`${b.id}-${b.title}-${b.description ?? ""}-${b.why_it_matters ?? ""}`}
                 onSave={(fields) =>
                   start(async () => {
@@ -80,10 +88,12 @@ export function SpineBeatList({ beats }: { beats: Beat[] }) {
 
 function SortableBeatCard({
   beat,
+  projectId,
   formKey,
   onSave,
 }: {
   beat: Beat;
+  projectId: string;
   formKey: string;
   onSave: (fields: {
     title?: string;
@@ -133,6 +143,14 @@ function SortableBeatCard({
               >
                 Open beat →
               </Link>
+              <div className="ml-auto">
+                <NewChapterForBeatButton
+                  projectId={projectId}
+                  beatId={beat.id}
+                  label="Chapter for this beat"
+                  variant="ghost"
+                />
+              </div>
             </div>
 
             <BeatInlineForm key={formKey} beat={beat} onSave={onSave} />

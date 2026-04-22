@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { loadSpine } from "@/lib/spine";
 import { StructureTabs } from "@/components/structure-tabs";
+import { NewChapterButton } from "@/components/new-chapter-button";
 import type { Character } from "@/lib/supabase/types";
 import { Corkboard } from "./corkboard";
 
@@ -36,7 +37,10 @@ export default async function PlanPage() {
             Drag scenes within a chapter to reorder them.
           </p>
         </div>
-        <StructureTabs />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <StructureTabs />
+          <NewChapterButton projectId={project.id} />
+        </div>
       </header>
 
       <Corkboard spine={spine} characters={characters} />

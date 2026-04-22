@@ -48,7 +48,7 @@ export default async function SpinePage() {
         </p>
       ) : (
         <>
-          <SpineBeatList beats={beats} />
+          <SpineBeatList beats={beats} projectId={project.id} />
           <MergeBeatsForm beats={beats} />
         </>
       )}
