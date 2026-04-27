@@ -5,14 +5,26 @@ import { BubbleMenu as BubbleMenuPrimitive } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import {
+  useCallback,
   useEffect,
   useImperativeHandle,
   forwardRef,
+  useRef,
+  useState,
   useTransition,
 } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   runInlineAssist,
   type InlineAssistMode,
@@ -74,6 +86,15 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
     ref,
   ) {
     const [assistPending, startAssist] = useTransition();
+    const [customOpen, setCustomOpen] = useState(false);
+    const [customInstruction, setCustomInstruction] = useState("");
+    const [customError, setCustomError] = useState<string | null>(null);
+    const [customSnippet, setCustomSnippet] = useState("");
+    const assistRangeRef = useRef<{
+      from: number;
+      to: number;
+      selectedText: string;
+    } | null>(null);
 
     const editor = useEditor({
       extensions: [
@@ -106,18 +127,39 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       },
     });
 
-    function replaceSelection(text: string) {
-      if (!editor) return;
+    const replaceRange = useCallback(
+      (from: number, to: number, text: string) => {
+        if (!editor) return;
+        const max = editor.state.doc.content.size;
+        if (from < 0 || to > max || from > to) return;
+        editor.chain().focus().deleteRange({ from, to }).run();
+        insertParagraphs(editor, text);
+      },
+      [editor],
+    );
+
+    const replaceSelection = useCallback(
+      (text: string) => {
+        if (!editor) return;
+        const { from, to } = editor.state.selection;
+        replaceRange(from, to, text);
+      },
+      [editor, replaceRange],
+    );
+
+    function captureAssistRange(): boolean {
+      if (!editor) return false;
       const { from, to } = editor.state.selection;
-      editor.chain().focus().deleteRange({ from, to }).run();
-      insertParagraphs(editor, text);
+      if (from === to) return false;
+      const selectedText = editor.state.doc.textBetween(from, to, "\n");
+      assistRangeRef.current = { from, to, selectedText };
+      return true;
     }
 
     function runAssist(mode: InlineAssistMode) {
       if (!editor || !sceneId) return;
-      const { from, to } = editor.state.selection;
-      if (from === to) return;
-      const selectedText = editor.state.doc.textBetween(from, to, "\n");
+      if (!captureAssistRange()) return;
+      const { from, to, selectedText } = assistRangeRef.current!;
       startAssist(async () => {
         const res = await runInlineAssist({
           sceneId,
@@ -126,7 +168,64 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           mode,
         });
         if (!res.ok || !res.text) return;
-        replaceSelection(res.text);
+        replaceRange(from, to, res.text);
+      });
+    }
+
+    function openCustomAssist() {
+      if (!editor || !sceneId) return;
+      setCustomError(null);
+      if (!captureAssistRange()) return;
+      const { selectedText } = assistRangeRef.current!;
+      setCustomSnippet(
+        selectedText.length > 280
+          ? `${selectedText.slice(0, 280)}…`
+          : selectedText,
+      );
+      setCustomInstruction("");
+      setCustomOpen(true);
+    }
+
+    function applyCustomAssist() {
+      if (!editor || !sceneId) return;
+      const range = assistRangeRef.current;
+      const instruction = customInstruction.trim();
+      if (!range || !instruction) return;
+
+      const { from, to, selectedText } = range;
+      const doc = editor.state.doc;
+      const max = doc.content.size;
+      if (from < 0 || to > max || from > to) {
+        setCustomError("That selection is no longer valid. Close this dialog and select the text again.");
+        return;
+      }
+      const currentSlice = doc.textBetween(from, to, "\n");
+      if (currentSlice !== selectedText) {
+        setCustomError("The document changed under that selection. Close this dialog and select the text again.");
+        return;
+      }
+
+      startAssist(async () => {
+        setCustomError(null);
+        const res = await runInlineAssist({
+          sceneId,
+          chapterId: chapterId ?? null,
+          selectedText,
+          mode: "rewrite",
+          authorInstruction: instruction,
+        });
+        if (!res.ok) {
+          setCustomError(res.error || "Assist failed.");
+          return;
+        }
+        if (!res.text) {
+          setCustomError("No text returned.");
+          return;
+        }
+        replaceRange(from, to, res.text);
+        setCustomOpen(false);
+        setCustomInstruction("");
+        assistRangeRef.current = null;
       });
     }
 
@@ -143,13 +242,13 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           if (!editor) return;
           insertParagraphs(editor, text);
         },
-        replaceSelection: (text: string) => replaceSelection(text),
+        replaceSelection,
         focus: () => editor?.commands.focus(),
         getText: () => editor?.getText() || "",
         getHTML: () => editor?.getHTML() || "",
         setContent: (html: string) => editor?.commands.setContent(html),
       }),
-      [editor],
+      [editor, replaceSelection],
     );
 
     const showBubble =
@@ -162,6 +261,71 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
 
     return (
       <div className="relative flex w-full min-w-0 gap-0">
+        <Dialog
+          open={customOpen}
+          onOpenChange={(open) => {
+            setCustomOpen(open);
+            if (!open) {
+              setCustomInstruction("");
+              setCustomError(null);
+              setCustomSnippet("");
+              assistRangeRef.current = null;
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Revise selection</DialogTitle>
+              <DialogDescription>
+                Describe how you want the highlighted passage changed. The Partner
+                will rewrite only that selection.
+              </DialogDescription>
+            </DialogHeader>
+            {customSnippet ? (
+              <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                <div className="mb-1 font-medium text-foreground">Selected text</div>
+                <p className="whitespace-pre-wrap font-serif text-foreground/90">
+                  {customSnippet}
+                </p>
+              </div>
+            ) : null}
+            <Textarea
+              value={customInstruction}
+              onChange={(e) => setCustomInstruction(e.target.value)}
+              placeholder='e.g. "Make it steamier" or "Slow the pacing and add interiority"'
+              rows={4}
+              disabled={assistPending}
+            />
+            {customError ? (
+              <p className="text-sm text-destructive">{customError}</p>
+            ) : null}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCustomOpen(false)}
+                disabled={assistPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={assistPending || !customInstruction.trim()}
+                className="gap-2"
+                onClick={() => applyCustomAssist()}
+              >
+                {assistPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Working…
+                  </>
+                ) : (
+                  "Apply"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {showContinuity ? (
           <ContinuityGutter
             editor={editor}
@@ -186,18 +350,30 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
                     <Loader2 className="h-3 w-3 animate-spin" /> Working…
                   </span>
                 ) : (
-                  INLINE_ACTIONS.map(({ mode, label }) => (
+                  <>
+                    {INLINE_ACTIONS.map(({ mode, label }) => (
+                      <Button
+                        key={mode}
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        onClick={() => runAssist(mode)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
                     <Button
-                      key={mode}
                       type="button"
                       size="sm"
-                      variant="ghost"
+                      variant="secondary"
                       className="h-7 text-xs"
-                      onClick={() => runAssist(mode)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => openCustomAssist()}
                     >
-                      {label}
+                      Custom…
                     </Button>
-                  ))
+                  </>
                 )}
               </div>
             </BubbleMenuPrimitive>

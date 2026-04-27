@@ -42,12 +42,23 @@ const MODE_PROMPTS: Record<InlineAssistMode, string> = {
     "Rewrite the SELECTION ONLY from the OTHER lead's POV (if dual POV project), deep third. If unclear which other character, infer from PROJECT characters. Return ONLY the passage.",
 };
 
+function authorInstructionDirective(instruction: string): string {
+  return [
+    "The author gave this instruction for revising the SELECTION ONLY (follow it; stay consistent with the PROJECT context unless the instruction clearly asks otherwise):",
+    instruction,
+    "Preserve POV, tense, and voice unless the instruction explicitly requires changing them.",
+    "Return ONLY the revised passage — no preamble, quotes, or labels.",
+  ].join("\n");
+}
+
 /** Replace the current selection with Partner-revised prose (Phase 1 inline toolbar). */
 export async function runInlineAssist(input: {
   sceneId: string | null;
   chapterId: string | null;
   selectedText: string;
   mode: InlineAssistMode;
+  /** When set and non-empty after trim, overrides preset mode prompts. */
+  authorInstruction?: string | null;
 }): Promise<{ ok: boolean; text?: string; error?: string }> {
   const trimmed = input.selectedText.trim();
   if (!trimmed)
@@ -137,7 +148,12 @@ export async function runInlineAssist(input: {
 
     const persona = getPersonas(parseWritingProfile(project.writing_profile))
       .partner;
-    const directive = `\n\n---\n\n${MODE_PROMPTS[input.mode]}`;
+    const custom = input.authorInstruction?.trim();
+    const task =
+      custom && custom.length > 0
+        ? authorInstructionDirective(custom)
+        : MODE_PROMPTS[input.mode];
+    const directive = `\n\n---\n\n${task}`;
     const user = `SELECTION TO REVISE (quoted for clarity — do not include these quote marks in your output):\n"""\n${trimmed}\n"""`;
 
     const model = resolveModelFromProject(project.writing_profile, persona.model);

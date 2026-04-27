@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import {
   Sparkles,
   MessageCircle,
@@ -10,6 +10,7 @@ import {
   BookOpen,
   PenLine,
   List,
+  CornerDownRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,6 +82,7 @@ export function TeamPanel({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
 
   const active = personas[activeKey];
   const label = aliases?.[activeKey] || active.label;
@@ -135,6 +137,32 @@ export function TeamPanel({
   const showInsertProof =
     proofParts && onInsertProse && activeKey === "proofreader";
 
+  const coachText =
+    proofParts?.cleaned ?? (response.trim() ? response : "");
+  const showAddToPartner =
+    coachText.length > 0 &&
+    activeKey !== "partner" &&
+    activeKey !== "proofreader";
+
+  function addCoachResponseToPartnerPrompt() {
+    const body = coachText.trim();
+    if (!body) return;
+    const partnerLabel = aliases?.partner ?? personas.partner.label;
+    const nextPrompt = `Feedback from ${label}:\n\n${body}\n\n---\nWhat I want ${partnerLabel} to write now (optional — delete if you only need the note applied):\n`;
+    setActiveKey("partner");
+    setPrompt(nextPrompt);
+    setResponse("");
+    setProofParts(null);
+    setError(null);
+    setTimeout(() => {
+      const el = promptRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    }, 0);
+  }
+
   return (
     <div className="flex h-full flex-col gap-3">
       <div>
@@ -178,6 +206,7 @@ export function TeamPanel({
 
       <form onSubmit={onSend} className="space-y-2">
         <Textarea
+          ref={promptRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder={
@@ -248,6 +277,20 @@ export function TeamPanel({
                   onClick={() => onInsertProse(proofParts.cleaned)}
                 >
                   Replace selection with cleaned text
+                </Button>
+              )}
+              {showAddToPartner && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  title="Switch to The Partner and put this reply in the prompt so you can ask for prose."
+                  onClick={addCoachResponseToPartnerPrompt}
+                  className="gap-1"
+                >
+                  <CornerDownRight className="h-3 w-3" />
+                  <span className="max-[420px]:hidden">Use in Partner</span>
+                  <span className="hidden max-[420px]:inline">Partner</span>
                 </Button>
               )}
               <Button
