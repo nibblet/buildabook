@@ -527,7 +527,7 @@ export function SceneFocusClient({
             chapterId={chapter.id}
             aliases={project.persona_aliases}
             onInsertProse={(text) => {
-              editorRef.current?.insertAtCursor(text);
+              editorRef.current?.insertAtCursor(text, { showUndoBanner: true });
             }}
           />
         </aside>
@@ -540,7 +540,9 @@ export function SceneFocusClient({
           sceneId={scene.id}
           chapterId={chapter.id}
           aliases={project.persona_aliases}
-          onInsertProse={(text) => editorRef.current?.insertAtCursor(text)}
+          onInsertProse={(text) =>
+            editorRef.current?.insertAtCursor(text, { showUndoBanner: true })
+          }
         />
       )}
     </div>

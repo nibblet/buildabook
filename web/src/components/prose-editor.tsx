@@ -33,9 +33,13 @@ import { ContinuityGutter } from "@/components/continuity-gutter";
 import type { ContinuityDial } from "@/lib/ai/continuity/dial";
 import { WikiLink } from "@/lib/tiptap/wiki-link-node";
 import { wikiLinkSuggestion } from "@/lib/tiptap/wiki-link-suggestion";
+import { paragraphsFromPlainText } from "@/lib/tiptap/plain-text-paragraphs";
 
 export type ProseEditorHandle = {
-  insertAtCursor: (text: string) => void;
+  insertAtCursor: (
+    text: string,
+    opts?: { showUndoBanner?: boolean },
+  ) => void;
   replaceSelection: (text: string) => void;
   focus: () => void;
   getText: () => string;
@@ -95,6 +99,44 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       to: number;
       selectedText: string;
     } | null>(null);
+    const undoBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+      null,
+    );
+    const [undoBannerVisible, setUndoBannerVisible] = useState(false);
+    const [assistError, setAssistError] = useState<string | null>(null);
+
+    const dismissUndoBanner = useCallback(() => {
+      setUndoBannerVisible(false);
+      if (undoBannerTimerRef.current) {
+        clearTimeout(undoBannerTimerRef.current);
+        undoBannerTimerRef.current = null;
+      }
+    }, []);
+
+    const showUndoBanner = useCallback(() => {
+      setUndoBannerVisible(true);
+      if (undoBannerTimerRef.current) {
+        clearTimeout(undoBannerTimerRef.current);
+      }
+      undoBannerTimerRef.current = setTimeout(() => {
+        setUndoBannerVisible(false);
+        undoBannerTimerRef.current = null;
+      }, 8000);
+    }, []);
+
+    useEffect(() => {
+      return () => {
+        if (undoBannerTimerRef.current) {
+          clearTimeout(undoBannerTimerRef.current);
+        }
+      };
+    }, []);
+
+    useEffect(() => {
+      if (!assistError) return;
+      const t = setTimeout(() => setAssistError(null), 8000);
+      return () => clearTimeout(t);
+    }, [assistError]);
 
     const editor = useEditor({
       extensions: [
@@ -127,13 +169,16 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       },
     });
 
+    /** One ProseMirror step so a single Cmd/Ctrl+Z restores the previous selection. */
     const replaceRange = useCallback(
       (from: number, to: number, text: string) => {
         if (!editor) return;
         const max = editor.state.doc.content.size;
         if (from < 0 || to > max || from > to) return;
-        editor.chain().focus().deleteRange({ from, to }).run();
-        insertParagraphs(editor, text);
+        const nodes = paragraphsFromPlainText(text);
+        const chain = editor.chain().focus().deleteRange({ from, to });
+        if (nodes.length > 0) chain.insertContent(nodes);
+        chain.run();
       },
       [editor],
     );
@@ -158,6 +203,7 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
 
     function runAssist(mode: InlineAssistMode) {
       if (!editor || !sceneId) return;
+      setAssistError(null);
       if (!captureAssistRange()) return;
       const { from, to, selectedText } = assistRangeRef.current!;
       startAssist(async () => {
@@ -168,7 +214,23 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           mode,
         });
         if (!res.ok || !res.text) return;
+        if (!editor) return;
+        const doc = editor.state.doc;
+        const max = doc.content.size;
+        if (from < 0 || to > max || from > to) {
+          setAssistError(
+            "That selection is no longer valid. Select the text again.",
+          );
+          return;
+        }
+        if (doc.textBetween(from, to, "\n") !== selectedText) {
+          setAssistError(
+            "The document changed while waiting. Select the passage again.",
+          );
+          return;
+        }
         replaceRange(from, to, res.text);
+        showUndoBanner();
       });
     }
 
@@ -222,7 +284,23 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           setCustomError("No text returned.");
           return;
         }
+        if (!editor) return;
+        const docAfter = editor.state.doc;
+        const maxAfter = docAfter.content.size;
+        if (from < 0 || to > maxAfter || from > to) {
+          setCustomError(
+            "That selection is no longer valid. Close this dialog and select the text again.",
+          );
+          return;
+        }
+        if (docAfter.textBetween(from, to, "\n") !== selectedText) {
+          setCustomError(
+            "The document changed while waiting. Close this dialog and select the text again.",
+          );
+          return;
+        }
         replaceRange(from, to, res.text);
+        showUndoBanner();
         setCustomOpen(false);
         setCustomInstruction("");
         assistRangeRef.current = null;
@@ -235,12 +313,22 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       }
     }, [autofocus, editor]);
 
+    const handleUndoFromBanner = useCallback(() => {
+      if (!editor) return;
+      editor.chain().focus().undo().run();
+      dismissUndoBanner();
+    }, [editor, dismissUndoBanner]);
+
     useImperativeHandle(
       ref,
       () => ({
-        insertAtCursor: (text: string) => {
+        insertAtCursor: (
+          text: string,
+          opts?: { showUndoBanner?: boolean },
+        ) => {
           if (!editor) return;
           insertParagraphs(editor, text);
+          if (opts?.showUndoBanner) showUndoBanner();
         },
         replaceSelection,
         focus: () => editor?.commands.focus(),
@@ -248,7 +336,7 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
         getHTML: () => editor?.getHTML() || "",
         setContent: (html: string) => editor?.commands.setContent(html),
       }),
-      [editor, replaceSelection],
+      [editor, replaceSelection, showUndoBanner],
     );
 
     const showBubble =
@@ -335,6 +423,35 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           />
         ) : null}
         <div className="relative min-w-0 flex-1">
+          {undoBannerVisible ? (
+            <div
+              className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm"
+              role="status"
+            >
+              <span className="text-muted-foreground">Edit applied.</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8"
+                  onClick={handleUndoFromBanner}
+                >
+                  Undo
+                </Button>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  onClick={dismissUndoBanner}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {assistError ? (
+            <p className="mb-2 text-sm text-destructive">{assistError}</p>
+          ) : null}
           <EditorContent editor={editor} className={cn(className)} />
           {showBubble && editor ? (
             <BubbleMenuPrimitive
@@ -385,13 +502,7 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
 );
 
 function insertParagraphs(editor: Editor, text: string) {
-  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  const chain = editor.chain().focus();
-  for (const p of paragraphs) {
-    chain.insertContent({
-      type: "paragraph",
-      content: [{ type: "text", text: p }],
-    });
-  }
-  chain.run();
+  const nodes = paragraphsFromPlainText(text);
+  if (nodes.length === 0) return;
+  editor.chain().focus().insertContent(nodes).run();
 }
