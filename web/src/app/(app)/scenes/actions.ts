@@ -137,6 +137,50 @@ export async function moveSceneToChapter(sceneId: string, targetChapterId: strin
   revalidatePath("/");
 }
 
+export async function deleteScene(sceneId: string) {
+  const project = await getOrCreateProject();
+  if (!project) throw new Error("No project.");
+  const supabase = await supabaseServer();
+
+  const { data: scene } = await supabase
+    .from("scenes")
+    .select("id, chapter_id")
+    .eq("id", sceneId)
+    .maybeSingle();
+  if (!scene?.chapter_id) throw new Error("Scene not found.");
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("id, project_id")
+    .eq("id", scene.chapter_id)
+    .maybeSingle();
+  if (!chapter || chapter.project_id !== project.id) {
+    throw new Error("Forbidden.");
+  }
+
+  const { error: deleteError } = await supabase.from("scenes").delete().eq("id", sceneId);
+  if (deleteError) throw deleteError;
+
+  const { data: remaining } = await supabase
+    .from("scenes")
+    .select("id, order_index, wordcount")
+    .eq("chapter_id", scene.chapter_id)
+    .order("order_index", { ascending: true });
+
+  await Promise.all(
+    (remaining ?? []).map((row, idx) =>
+      supabase.from("scenes").update({ order_index: idx }).eq("id", row.id),
+    ),
+  );
+
+  const total = (remaining ?? []).reduce((sum, row) => sum + (row.wordcount ?? 0), 0);
+  await supabase.from("chapters").update({ wordcount: total }).eq("id", scene.chapter_id);
+
+  revalidatePath(`/chapters/${scene.chapter_id}`);
+  revalidatePath(`/scenes/${sceneId}`);
+  revalidatePath("/");
+}
+
 export async function updateSceneCharacterArc(
   sceneId: string,
   characterId: string,

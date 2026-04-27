@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ChapterDebrief } from "@/lib/ai/chapter-debrief";
 import type { FactCheckWarning } from "@/lib/supabase/types";
 import {
   runChapterDebriefAction,
@@ -22,23 +24,32 @@ export function ChapterChapterToolbar({
   const [warnings, setWarnings] = useState<FactCheckWarning[]>(
     Array.isArray(initialWarnings) ? initialWarnings : [],
   );
-  const [debriefText, setDebriefText] = useState<string | null>(null);
-  const [, start] = useTransition();
+  const [debrief, setDebrief] = useState<ChapterDebrief | null>(null);
+  const [isFactChecking, setIsFactChecking] = useState(false);
+  const [isDebriefing, setIsDebriefing] = useState(false);
 
-  function factCheck() {
-    start(async () => {
+  async function factCheck() {
+    if (isFactChecking) return;
+    setIsFactChecking(true);
+    try {
       const res = await runChapterFactCheckAction(chapterId);
       if (res.ok && res.warnings) setWarnings(res.warnings);
       router.refresh();
-    });
+    } finally {
+      setIsFactChecking(false);
+    }
   }
 
-  function runDebrief() {
-    start(async () => {
+  async function runDebrief() {
+    if (isDebriefing) return;
+    setIsDebriefing(true);
+    try {
       const res = await runChapterDebriefAction(chapterId);
-      if (res.ok && res.text) setDebriefText(res.text);
+      if (res.ok && res.debrief) setDebrief(res.debrief);
       router.refresh();
-    });
+    } finally {
+      setIsDebriefing(false);
+    }
   }
 
   return (
@@ -55,11 +66,37 @@ export function ChapterChapterToolbar({
               Review codex
             </Link>
           </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={factCheck}>
-            Run continuity check
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={factCheck}
+            disabled={isFactChecking}
+          >
+            {isFactChecking ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Running continuity check...
+              </>
+            ) : (
+              "Run continuity check"
+            )}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={runDebrief}>
-            Chapter debrief
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={runDebrief}
+            disabled={isDebriefing}
+          >
+            {isDebriefing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Running debrief...
+              </>
+            ) : (
+              "Chapter debrief"
+            )}
           </Button>
         </div>
 
@@ -80,9 +117,35 @@ export function ChapterChapterToolbar({
           </ul>
         )}
 
-        {debriefText && (
+        {debrief && (
           <div className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed">
-            {debriefText}
+            <p className="font-medium text-foreground">{debrief.summary}</p>
+
+            {debrief.goingWell.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  What&apos;s going well
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                  {debrief.goingWell.map((item, idx) => (
+                    <li key={`good-${idx}`}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {debrief.couldBeImproved.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  What could be improved
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                  {debrief.couldBeImproved.map((item, idx) => (
+                    <li key={`improve-${idx}`}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

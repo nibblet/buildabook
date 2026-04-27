@@ -18,13 +18,19 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowRight, GripVertical } from "lucide-react";
+import { ArrowRight, Loader2, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { Beat, Character, Scene } from "@/lib/supabase/types";
 import { cn, formatNumber } from "@/lib/utils";
-import { moveSceneToChapter, reorderScenes } from "../../scenes/actions";
+import {
+  deleteScene,
+  moveSceneToChapter,
+  reorderScenes,
+  updateSceneFields,
+} from "../../scenes/actions";
 
 type ChapterOption = {
   id: string;
@@ -132,6 +138,7 @@ function SortableSceneCard({
   currentChapterId: string;
   otherChapters: ChapterOption[];
 }) {
+  const router = useRouter();
   const {
     attributes,
     listeners,
@@ -145,6 +152,42 @@ function SortableSceneCard({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [goal, setGoal] = useState(scene.goal ?? "");
+  const [conflict, setConflict] = useState(scene.conflict ?? "");
+  const [outcome, setOutcome] = useState(scene.outcome ?? "");
+  const [isSavingMeta, startSavingMeta] = useTransition();
+
+  function saveMetaField(
+    field: "goal" | "conflict" | "outcome",
+    nextValue: string,
+    prevValue: string | null,
+  ) {
+    const next = nextValue.trim();
+    const prev = (prevValue ?? "").trim();
+    if (next === prev) return;
+    startSavingMeta(async () => {
+      await updateSceneFields(scene.id, { [field]: next || null });
+    });
+  }
+
+  function onDeleteScene() {
+    if (isDeleting) return;
+    const confirmed = window.confirm(
+      "Delete this scene? This cannot be undone and will remove all scene content.",
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    void (async () => {
+      try {
+        await deleteScene(scene.id);
+        router.refresh();
+      } finally {
+        setIsDeleting(false);
+      }
+    })();
+  }
 
   return (
     <li ref={setNodeRef} style={style}>
@@ -154,7 +197,7 @@ function SortableSceneCard({
           isDragging && "opacity-70 ring-2 ring-primary",
         )}
       >
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-1">
           <CardTitle className="flex items-start justify-between gap-3 text-base">
             <button
               type="button"
@@ -165,23 +208,24 @@ function SortableSceneCard({
             >
               <GripVertical className="h-5 w-5" />
             </button>
-            <span className="flex-1">
-              Scene {(scene.order_index ?? idx) + 1}
+            <span className="flex-1 text-sm">
+              <span className="font-medium">
+                Scene {(scene.order_index ?? idx) + 1}
+              </span>
               {scene.title && (
-                <span className="ml-2 font-normal text-muted-foreground">
+                <span className="ml-1.5 font-normal text-muted-foreground">
                   · {scene.title}
                 </span>
               )}
             </span>
-            <span className="text-xs font-normal tabular-nums text-muted-foreground">
-              {formatNumber(scene.wordcount ?? 0)} words
-            </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 pt-0">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <CardContent className="space-y-2.5 pt-0">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             <Badge variant="muted">{scene.status}</Badge>
             {pov && <span>POV: {pov}</span>}
+            <span>·</span>
+            <span className="tabular-nums">{formatNumber(scene.wordcount ?? 0)} words</span>
             {sBeats.map((b) => (
               <Badge key={b.id} variant="secondary">
                 {b.title}
@@ -189,64 +233,92 @@ function SortableSceneCard({
             ))}
           </div>
 
-          {(scene.goal || scene.conflict || scene.outcome) && (
-            <dl className="space-y-1 text-sm text-muted-foreground">
-              {scene.goal && (
-                <div>
-                  <span className="font-medium text-foreground">Goal:</span>{" "}
-                  {scene.goal}
-                </div>
-              )}
-              {scene.conflict && (
-                <div>
-                  <span className="font-medium text-foreground">Conflict:</span>{" "}
-                  {scene.conflict}
-                </div>
-              )}
-              {scene.outcome && (
-                <div>
-                  <span className="font-medium text-foreground">Outcome:</span>{" "}
-                  {scene.outcome}
-                </div>
-              )}
-            </dl>
-          )}
+          <div className="space-y-1.5">
+            <LabeledInlineField
+              label="Goal"
+              value={goal}
+              onChange={setGoal}
+              onCommit={() => saveMetaField("goal", goal, scene.goal)}
+            />
+            <LabeledInlineField
+              label="Conflict"
+              value={conflict}
+              onChange={setConflict}
+              onCommit={() => saveMetaField("conflict", conflict, scene.conflict)}
+            />
+            <LabeledInlineField
+              label="Outcome"
+              value={outcome}
+              onChange={setOutcome}
+              onCommit={() => saveMetaField("outcome", outcome, scene.outcome)}
+            />
+          </div>
 
           {scene.content && <SceneSnippet html={scene.content} />}
 
-          <SceneMoveRow
+          <SceneActionBar
             sceneId={scene.id}
             currentChapterId={currentChapterId}
             otherChapters={otherChapters}
+            isDeleting={isDeleting}
+            onDeleteScene={onDeleteScene}
+            isSavingMeta={isSavingMeta}
           />
-
-          <div className="flex justify-end">
-            <Link href={`/scenes/${scene.id}`}>
-              <Button size="sm" variant="secondary" className="gap-1">
-                Open scene <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </li>
   );
 }
 
-function SceneMoveRow({
+function LabeledInlineField({
+  label,
+  value,
+  onChange,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onCommit: () => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs">
+      <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onCommit();
+          }
+        }}
+        placeholder={`${label}...`}
+        className="h-8 text-xs"
+      />
+    </label>
+  );
+}
+
+function SceneActionBar({
   sceneId,
   currentChapterId,
   otherChapters,
+  isDeleting,
+  onDeleteScene,
+  isSavingMeta,
 }: {
   sceneId: string;
   currentChapterId: string;
   otherChapters: ChapterOption[];
+  isDeleting: boolean;
+  onDeleteScene: () => void;
+  isSavingMeta: boolean;
 }) {
   const router = useRouter();
   const [target, setTarget] = useState(otherChapters[0]?.id ?? "");
-  const [, start] = useTransition();
-
-  if (otherChapters.length === 0) return null;
+  const [isMoving, start] = useTransition();
 
   function move() {
     if (!target || target === currentChapterId) return;
@@ -257,25 +329,68 @@ function SceneMoveRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t pt-3 text-xs">
-      <span className="text-muted-foreground">Move to chapter:</span>
-      <select
-        value={target}
-        onChange={(e) => setTarget(e.target.value)}
-        className="h-8 max-w-[12rem] rounded-md border border-input bg-background px-2 text-xs"
-      >
-        {otherChapters.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.title?.trim() || `Chapter ${(c.order_index ?? 0) + 1}`}
-          </option>
-        ))}
-      </select>
-      <Button type="button" size="sm" variant="outline" className="h-8" onClick={move}>
-        Move
-      </Button>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
+      <div className="flex items-center gap-2">
+        {otherChapters.length > 0 && (
+          <>
+            <select
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              className="h-8 max-w-[11rem] rounded-md border border-input bg-background px-2 text-xs"
+            >
+              {otherChapters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title?.trim() || `Chapter ${(c.order_index ?? 0) + 1}`}
+                </option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={move}
+              disabled={isMoving}
+            >
+              Move
+            </Button>
+          </>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {isSavingMeta && (
+          <span className="text-[11px] text-muted-foreground">Saving...</span>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          variant="destructive"
+          className="h-8 gap-1"
+          onClick={onDeleteScene}
+          disabled={isDeleting}
+        >
+          {isDeleting ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Deleting...
+            </>
+          ) : (
+            <>
+              <Trash2 className="h-3 w-3" />
+              Delete
+            </>
+          )}
+        </Button>
+        <Link href={`/scenes/${sceneId}`}>
+          <Button size="sm" variant="secondary" className="h-8 gap-1">
+            Open <ArrowRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      </div>
     </div>
   );
 }
+
 
 function SceneSnippet({ html }: { html: string }) {
   const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
