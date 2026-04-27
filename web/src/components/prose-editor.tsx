@@ -34,11 +34,23 @@ import type { ContinuityDial } from "@/lib/ai/continuity/dial";
 import { WikiLink } from "@/lib/tiptap/wiki-link-node";
 import { wikiLinkSuggestion } from "@/lib/tiptap/wiki-link-suggestion";
 import { paragraphsFromPlainText } from "@/lib/tiptap/plain-text-paragraphs";
+import { AiEditReviewDialog } from "@/components/ai-edit-review-dialog";
+
+export type ReviewPayload =
+  | {
+      variant: "replace";
+      from: number;
+      to: number;
+      selectedText: string;
+      proposedText: string;
+      assistLabel: string;
+    }
+  | { variant: "insert"; proposedText: string };
 
 export type ProseEditorHandle = {
   insertAtCursor: (
     text: string,
-    opts?: { showUndoBanner?: boolean },
+    opts?: { showUndoBanner?: boolean; previewInsert?: boolean },
   ) => void;
   replaceSelection: (text: string) => void;
   focus: () => void;
@@ -104,6 +116,10 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
     );
     const [undoBannerVisible, setUndoBannerVisible] = useState(false);
     const [assistError, setAssistError] = useState<string | null>(null);
+    const [reviewPayload, setReviewPayload] = useState<ReviewPayload | null>(
+      null,
+    );
+    const skipRangeClearOnCustomClose = useRef(false);
 
     const dismissUndoBanner = useCallback(() => {
       setUndoBannerVisible(false);
@@ -229,8 +245,16 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           );
           return;
         }
-        replaceRange(from, to, res.text);
-        showUndoBanner();
+        const label =
+          INLINE_ACTIONS.find((a) => a.mode === mode)?.label ?? mode;
+        setReviewPayload({
+          variant: "replace",
+          from,
+          to,
+          selectedText,
+          proposedText: res.text,
+          assistLabel: label,
+        });
       });
     }
 
@@ -299,12 +323,57 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           );
           return;
         }
-        replaceRange(from, to, res.text);
-        showUndoBanner();
-        setCustomOpen(false);
+        skipRangeClearOnCustomClose.current = true;
+        setReviewPayload({
+          variant: "replace",
+          from,
+          to,
+          selectedText,
+          proposedText: res.text,
+          assistLabel: "Custom",
+        });
         setCustomInstruction("");
-        assistRangeRef.current = null;
+        setCustomError(null);
+        setCustomSnippet("");
+        setCustomOpen(false);
       });
+    }
+
+    function rejectReview() {
+      setReviewPayload(null);
+      assistRangeRef.current = null;
+    }
+
+    function acceptReview() {
+      if (!editor || !reviewPayload) return;
+      if (reviewPayload.variant === "insert") {
+        insertParagraphs(editor, reviewPayload.proposedText);
+        showUndoBanner();
+        setReviewPayload(null);
+        assistRangeRef.current = null;
+        return;
+      }
+      const { from, to, selectedText, proposedText } = reviewPayload;
+      const doc = editor.state.doc;
+      const max = doc.content.size;
+      if (from < 0 || to > max || from > to) {
+        setAssistError(
+          "That selection is no longer valid. Discard and select the text again.",
+        );
+        rejectReview();
+        return;
+      }
+      if (doc.textBetween(from, to, "\n") !== selectedText) {
+        setAssistError(
+          "The document changed. Discard this preview and try again.",
+        );
+        rejectReview();
+        return;
+      }
+      replaceRange(from, to, proposedText);
+      showUndoBanner();
+      setReviewPayload(null);
+      assistRangeRef.current = null;
     }
 
     useEffect(() => {
@@ -324,9 +393,13 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       () => ({
         insertAtCursor: (
           text: string,
-          opts?: { showUndoBanner?: boolean },
+          opts?: { showUndoBanner?: boolean; previewInsert?: boolean },
         ) => {
           if (!editor) return;
+          if (opts?.previewInsert) {
+            setReviewPayload({ variant: "insert", proposedText: text });
+            return;
+          }
           insertParagraphs(editor, text);
           if (opts?.showUndoBanner) showUndoBanner();
         },
@@ -357,7 +430,11 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
               setCustomInstruction("");
               setCustomError(null);
               setCustomSnippet("");
-              assistRangeRef.current = null;
+              if (skipRangeClearOnCustomClose.current) {
+                skipRangeClearOnCustomClose.current = false;
+              } else {
+                assistRangeRef.current = null;
+              }
             }
           }}
         >
@@ -365,8 +442,9 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
             <DialogHeader>
               <DialogTitle>Revise selection</DialogTitle>
               <DialogDescription>
-                Describe how you want the highlighted passage changed. The Partner
-                will rewrite only that selection.
+                Describe how you want the highlighted passage changed, then press
+                Preview. You will see the previous and new text side by side before
+                anything is applied.
               </DialogDescription>
             </DialogHeader>
             {customSnippet ? (
@@ -407,12 +485,33 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
                     <Loader2 className="h-4 w-4 animate-spin" /> Working…
                   </>
                 ) : (
-                  "Apply"
+                  "Preview"
                 )}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AiEditReviewDialog
+          open={reviewPayload !== null}
+          onOpenChange={(open) => {
+            if (!open) rejectReview();
+          }}
+          variant={reviewPayload?.variant ?? "replace"}
+          assistLabel={
+            reviewPayload?.variant === "replace"
+              ? reviewPayload.assistLabel
+              : undefined
+          }
+          previousText={
+            reviewPayload?.variant === "replace"
+              ? reviewPayload.selectedText
+              : ""
+          }
+          proposedText={reviewPayload?.proposedText ?? ""}
+          onAccept={acceptReview}
+          onReject={rejectReview}
+        />
 
         {showContinuity ? (
           <ContinuityGutter
