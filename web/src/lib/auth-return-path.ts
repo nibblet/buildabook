@@ -1,4 +1,4 @@
-/** Cookie set before magic-link OTP; read in /auth/callback (no query string on redirect URL). */
+/** Cookie set before magic-link OTP; read in `/auth/callback`. Magic links omit `?next=` on `redirectTo`; password reset passes `next` there so mail apps still reach `/auth/set-password` without this cookie. */
 export const AUTH_RETURN_COOKIE = "bab_auth_next";
 
 /** Where password-reset and recovery links send the user after `/auth/callback`. */

@@ -122,9 +122,11 @@ function LoginInner() {
         throw new Error("App URL is not configured.");
       }
       setBrowserAuthReturnCookie(AUTH_SET_PASSWORD_PATH);
+      const callbackUrl = new URL("/auth/callback", appBase);
+      callbackUrl.searchParams.set("next", AUTH_SET_PASSWORD_PATH);
       const { error } = await supabase.auth.resetPasswordForEmail(
         emailPass.trim(),
-        { redirectTo: `${appBase}/auth/callback` },
+        { redirectTo: callbackUrl.toString() },
       );
       if (error) throw error;
       setResetStatus("sent");

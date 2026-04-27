@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
   AUTH_RETURN_COOKIE,
+  AUTH_SET_PASSWORD_PATH,
   safeInternalPath,
 } from "@/lib/auth-return-path";
 
@@ -14,7 +15,12 @@ export async function GET(req: NextRequest) {
   const type = url.searchParams.get("type");
   const cookieNext = req.cookies.get(AUTH_RETURN_COOKIE)?.value;
   const queryNext = url.searchParams.get("next");
-  const nextPath = safeInternalPath(cookieNext ?? queryNext ?? undefined);
+  const typeParam = url.searchParams.get("type");
+  const nextPath = safeInternalPath(
+    cookieNext ??
+      queryNext ??
+      (typeParam === "recovery" ? AUTH_SET_PASSWORD_PATH : undefined),
+  );
 
   const supabase = await supabaseServer();
 
