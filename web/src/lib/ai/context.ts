@@ -42,6 +42,8 @@ export type ContextBundle = {
   ragContinuity?: string | null;
   /** Extracted continuity claims (confirmed vs tentative). */
   continuityFacts?: string | null;
+  /** Partner-only current/previous prose context for drafting. */
+  draftContext?: string | null;
   /** If present, used INSTEAD of raw characters/worldElements/openThreads. */
   wikiDocs?: WikiDocForContext[];
 };
@@ -78,6 +80,7 @@ export function buildContext(bundle: ContextBundle): string {
     priorSceneSummary,
     ragContinuity,
     continuityFacts,
+    draftContext,
     wikiDocs,
   } = bundle;
 
@@ -202,6 +205,11 @@ export function buildContext(bundle: ContextBundle): string {
     if (currentScene.goal) lines.push(`Goal: ${currentScene.goal}`);
     if (currentScene.conflict) lines.push(`Conflict: ${currentScene.conflict}`);
     if (currentScene.outcome) lines.push(`Planned outcome: ${currentScene.outcome}`);
+    lines.push("");
+  }
+
+  if (draftContext?.trim()) {
+    lines.push(draftContext.trim());
     lines.push("");
   }
 

@@ -106,17 +106,183 @@ export async function rejectAllAutoClaimsChapterAction(
   }
 }
 
-export async function confirmClaimIdsAction(claimIds: string[]) {
-  const supabase = await supabaseServer();
-  await confirmClaims(supabase, claimIds);
-  for (const id of claimIds) {
-    const { data: row } = await supabase
+export async function confirmClaimIdsAction(
+  chapterId: string,
+  claimIds: string[],
+): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    if (!claimIds.length) return { ok: true, count: 0 };
+    const supabase = await supabaseServer();
+    await confirmClaims(supabase, claimIds);
+    revalidatePath(`/chapters/${chapterId}`);
+    revalidatePath(`/chapters/${chapterId}/codex-review`);
+    return { ok: true, count: claimIds.length };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed.",
+    };
+  }
+}
+
+export async function rejectClaimIdsAction(
+  chapterId: string,
+  claimIds: string[],
+): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    if (!claimIds.length) return { ok: true, count: 0 };
+    const supabase = await supabaseServer();
+    const { error } = await supabase
       .from("continuity_claims")
-      .select("source_scene_id")
-      .eq("id", id)
-      .maybeSingle();
-    if (row?.source_scene_id) {
-      revalidatePath(`/scenes/${row.source_scene_id}`);
+      .update({
+        status: "rejected",
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", claimIds);
+    if (error) throw error;
+    revalidatePath(`/chapters/${chapterId}`);
+    revalidatePath(`/chapters/${chapterId}/codex-review`);
+    return { ok: true, count: claimIds.length };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed.",
+    };
+  }
+}
+
+export async function resolveClaimsToCharacterAction(input: {
+  chapterId: string;
+  claimIds: string[];
+  characterId: string;
+  alias: string | null;
+}): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    if (!input.claimIds.length) return { ok: true, count: 0 };
+    const supabase = await supabaseServer();
+
+    if (input.alias?.trim()) {
+      const { data: character } = await supabase
+        .from("characters")
+        .select("aliases")
+        .eq("id", input.characterId)
+        .maybeSingle();
+      const aliases = new Set<string>(character?.aliases ?? []);
+      aliases.add(input.alias.trim());
+      await supabase
+        .from("characters")
+        .update({ aliases: [...aliases] })
+        .eq("id", input.characterId);
     }
+
+    const { error } = await supabase
+      .from("continuity_claims")
+      .update({
+        subject_character_id: input.characterId,
+        subject_world_element_id: null,
+        subject_relationship_id: null,
+        proposed_destination_type: "character",
+        resolution_status: "resolved",
+        resolution_note: null,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", input.claimIds);
+    if (error) throw error;
+
+    revalidatePath(`/chapters/${input.chapterId}`);
+    revalidatePath(`/chapters/${input.chapterId}/codex-review`);
+    return { ok: true, count: input.claimIds.length };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed.",
+    };
+  }
+}
+
+export async function resolveClaimsToWorldElementAction(input: {
+  chapterId: string;
+  claimIds: string[];
+  worldElementId: string;
+  alias: string | null;
+  category: string | null;
+}): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    if (!input.claimIds.length) return { ok: true, count: 0 };
+    const supabase = await supabaseServer();
+
+    const { data: element } = await supabase
+      .from("world_elements")
+      .select("aliases, category")
+      .eq("id", input.worldElementId)
+      .maybeSingle();
+
+    const aliases = new Set<string>(element?.aliases ?? []);
+    if (input.alias?.trim()) aliases.add(input.alias.trim());
+
+    await supabase
+      .from("world_elements")
+      .update({
+        aliases: [...aliases],
+        category: element?.category ?? input.category,
+      })
+      .eq("id", input.worldElementId);
+
+    const { error } = await supabase
+      .from("continuity_claims")
+      .update({
+        subject_character_id: null,
+        subject_world_element_id: input.worldElementId,
+        subject_relationship_id: null,
+        proposed_destination_type: "world_element",
+        proposed_world_category: input.category,
+        resolution_status: "resolved",
+        resolution_note: null,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", input.claimIds);
+    if (error) throw error;
+
+    revalidatePath(`/chapters/${input.chapterId}`);
+    revalidatePath(`/chapters/${input.chapterId}/codex-review`);
+    return { ok: true, count: input.claimIds.length };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed.",
+    };
+  }
+}
+
+export async function resolveClaimsToRelationshipAction(input: {
+  chapterId: string;
+  claimIds: string[];
+  relationshipId: string;
+}): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    if (!input.claimIds.length) return { ok: true, count: 0 };
+    const supabase = await supabaseServer();
+    const { error } = await supabase
+      .from("continuity_claims")
+      .update({
+        subject_character_id: null,
+        subject_world_element_id: null,
+        subject_relationship_id: input.relationshipId,
+        proposed_destination_type: "relationship",
+        resolution_status: "resolved",
+        resolution_note: null,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", input.claimIds);
+    if (error) throw error;
+
+    revalidatePath(`/chapters/${input.chapterId}`);
+    revalidatePath(`/chapters/${input.chapterId}/codex-review`);
+    return { ok: true, count: input.claimIds.length };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed.",
+    };
   }
 }

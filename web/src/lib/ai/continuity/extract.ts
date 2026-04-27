@@ -7,7 +7,7 @@ import {
 } from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { Character, WorldElement } from "@/lib/supabase/types";
+import type { Character, Relationship, WorldElement } from "@/lib/supabase/types";
 import {
   ExtractedContinuityResponse,
   type ExtractedClaimRawT,
@@ -17,6 +17,7 @@ import {
   resolveSubject,
   type EntityRow,
 } from "@/lib/ai/continuity/resolve-subject";
+import { findRelationshipForPair } from "@/lib/ai/continuity/resolve-relationship";
 import {
   contradictionDraftsFromExtractor,
   mergeAnnotationDrafts,
@@ -46,7 +47,7 @@ function continuityEditorSystemPrompt(): string {
 Rules:
 - Every claim must be directly supported by the numbered paragraphs. Prefer NO claim over a guess.
 - Self-report confidence: high if explicitly stated; medium if strongly implied; low if inferred from subtext.
-- Use subject_ref_hint ONLY when you mean an existing entity UUID from the PRIOR CLAIMS list (same UUID appears there).
+- Use subject_ref_hint ONLY when you mean an existing entity UUID from the ENTITY INDEX.
 - paragraph_start / paragraph_end are inclusive 0-based indices into the numbered paragraphs below.
 - Return ONLY valid JSON (one object, double-quoted keys, no markdown fences).`;
 }
@@ -54,6 +55,7 @@ Rules:
 function buildUserPrompt(input: {
   paragraphs: string[];
   priorClaimLines: string[];
+  entityIndexLines: string[];
 }): string {
   const numbered = input.paragraphs
     .map((p, i) => `<<<PARAGRAPH_${i}>>>\n${p}`)
@@ -64,10 +66,18 @@ function buildUserPrompt(input: {
       ? input.priorClaimLines.join("\n")
       : "(none yet)";
 
-  return `PRIOR CLAIMS (reference by id in contradictions.conflicting_claim_ids only if listed here):
+  const entityIndex =
+    input.entityIndexLines.length > 0
+      ? input.entityIndexLines.join("\n")
+      : "(none yet)";
+
+  return `ENTITY INDEX (use these ids in subject_ref_hint when the claim is clearly about an existing entity):
+${entityIndex}
+
+PRIOR CLAIMS (reference by id in contradictions.conflicting_claim_ids only if listed here):
 ${prior}
 
-CURRENT SCENE (${input.paragraphs.length} paragraphs, indices 0–${Math.max(0, input.paragraphs.length - 1)}):
+CURRENT SCENE (${input.paragraphs.length} paragraphs, indices 0-${Math.max(0, input.paragraphs.length - 1)}):
 
 ${numbered}
 
@@ -83,12 +93,14 @@ Return a single JSON object:
       "object_text": "what the prose supports",
       "paragraph_start": 0,
       "paragraph_end": 0,
-      "confidence": "low | medium | high"
+      "confidence": "low | medium | high",
+      "proposed_world_category": "optional category when subject_type is world_element",
+      "relationship_character_labels": ["first character name", "second character name"]
     }
   ],
   "contradictions": [
     {
-      "summary": "one sentence — what clashes with earlier canon",
+      "summary": "one sentence - what clashes with earlier canon",
       "conflicting_claim_ids": ["uuid-from-prior-list"],
       "paragraph_start": 0,
       "paragraph_end": 0,
@@ -168,11 +180,15 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     return;
   }
 
-  const [{ data: chars }, { data: worlds }] = await Promise.all([
+  const [{ data: chars }, { data: worlds }, { data: relationships }] = await Promise.all([
     supabase.from("characters").select("id, name, aliases").eq("project_id", chapter.project_id),
     supabase
       .from("world_elements")
-      .select("id, name, aliases")
+      .select("id, name, category, aliases")
+      .eq("project_id", chapter.project_id),
+    supabase
+      .from("relationships")
+      .select("id, char_a_id, char_b_id")
       .eq("project_id", chapter.project_id),
   ]);
 
@@ -185,9 +201,25 @@ export async function extractContinuity(sceneId: string): Promise<void> {
   }));
   const entityWorlds: EntityRow[] = worldRows.map((w) => ({
     id: w.id,
-    name: (w.name ?? "").trim() || "—",
+    name: (w.name ?? "").trim() || "-",
     aliases: w.aliases,
   }));
+  const relationshipRows = (relationships ?? []) as Relationship[];
+  const entityIndexLines = [
+    ...charRows.map((c) => {
+      const aliases = (c.aliases ?? []).length
+        ? ` aliases=${c.aliases.join(", ")}`
+        : "";
+      return `character | ${c.id} | ${c.name}${aliases}`;
+    }),
+    ...worldRows.map((w) => {
+      const aliases = (w.aliases ?? []).length
+        ? ` aliases=${w.aliases.join(", ")}`
+        : "";
+      const category = w.category ? ` category=${w.category}` : "";
+      return `world_element | ${w.id} | ${w.name ?? "Unnamed"}${category}${aliases}`;
+    }),
+  ];
 
   const { data: priorRows } = await supabase
     .from("continuity_claims")
@@ -231,7 +263,7 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     const { text } = await askModel({
       persona: "continuity_editor",
       system: continuityEditorSystemPrompt(),
-      user: buildUserPrompt({ paragraphs, priorClaimLines }),
+      user: buildUserPrompt({ paragraphs, priorClaimLines, entityIndexLines }),
       model,
       temperature: 0.15,
       maxTokens: 8192,
@@ -261,6 +293,30 @@ export async function extractContinuity(sceneId: string): Promise<void> {
       entityChars,
       entityWorlds,
     );
+    const relationshipCharacterIds = c.relationship_character_labels
+      .map((label) =>
+        resolveSubject(label, null, entityChars, entityWorlds)
+          .subject_character_id,
+      )
+      .filter((id): id is string => Boolean(id));
+    const relationship = c.subject_type === "relationship"
+      ? findRelationshipForPair(
+          relationshipRows,
+          relationshipCharacterIds[0] ?? null,
+          relationshipCharacterIds[1] ?? null,
+        )
+      : null;
+    const proposedDestinationType =
+      c.subject_type === "relationship"
+        ? "relationship"
+        : c.subject_type === "world_element"
+          ? "world_element"
+          : c.subject_type === "character"
+            ? "character"
+            : c.subject_type === "scene"
+              ? "scene"
+              : "unresolved";
+
     return {
       project_id: chapter.project_id,
       source_scene_id: sceneId,
@@ -271,7 +327,15 @@ export async function extractContinuity(sceneId: string): Promise<void> {
       subject_label: c.subject_label,
       subject_character_id: resolved.subject_character_id,
       subject_world_element_id: resolved.subject_world_element_id,
-      subject_relationship_id: null as string | null,
+      subject_relationship_id: relationship?.id ?? null,
+      proposed_destination_type: proposedDestinationType,
+      proposed_world_category: c.proposed_world_category ?? null,
+      resolution_status: relationship
+        ? "resolved"
+        : resolved.resolution_status,
+      resolution_note: relationship
+        ? null
+        : resolved.resolution_note,
       predicate: c.predicate,
       object_text: c.object_text,
       confidence: c.confidence,

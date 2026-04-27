@@ -13,16 +13,150 @@ function appendField(
   return `${base}\n${add}`;
 }
 
+export type CanonPatch =
+  | {
+      table: "characters";
+      id: string;
+      field:
+        | "wound"
+        | "desire"
+        | "need"
+        | "appearance"
+        | "backstory"
+        | "voice_notes"
+        | "powers";
+      value: string;
+    }
+  | {
+      table: "world_elements";
+      id: string;
+      field: "description";
+      value: string;
+      category: string | null;
+    }
+  | {
+      table: "relationships";
+      id: string;
+      field: "current_state" | "arc_notes";
+      value: string;
+    };
+
+export function buildCanonPatchForClaim(
+  claim: ContinuityClaim,
+): CanonPatch | null {
+  const pred = claim.predicate.toLowerCase();
+  const obj = claim.object_text.trim();
+
+  if (
+    claim.subject_character_id &&
+    (claim.kind === "attribute" || claim.kind === "entity_introduction")
+  ) {
+    if (pred === "fears" || pred === "wound") {
+      return {
+        table: "characters",
+        id: claim.subject_character_id,
+        field: "wound",
+        value: obj || pred,
+      };
+    }
+    if (pred === "desire") {
+      return {
+        table: "characters",
+        id: claim.subject_character_id,
+        field: "desire",
+        value: obj,
+      };
+    }
+    if (pred === "need") {
+      return {
+        table: "characters",
+        id: claim.subject_character_id,
+        field: "need",
+        value: obj,
+      };
+    }
+    if (pred === "appearance") {
+      return {
+        table: "characters",
+        id: claim.subject_character_id,
+        field: "appearance",
+        value: obj,
+      };
+    }
+    if (pred === "backstory") {
+      return {
+        table: "characters",
+        id: claim.subject_character_id,
+        field: "backstory",
+        value: obj,
+      };
+    }
+    if (pred === "voice" || pred === "voice_notes") {
+      return {
+        table: "characters",
+        id: claim.subject_character_id,
+        field: "voice_notes",
+        value: obj,
+      };
+    }
+    if (pred === "powers" || pred === "power") {
+      return {
+        table: "characters",
+        id: claim.subject_character_id,
+        field: "powers",
+        value: obj,
+      };
+    }
+    return {
+      table: "characters",
+      id: claim.subject_character_id,
+      field: "voice_notes",
+      value: `${claim.predicate}: ${obj}`,
+    };
+  }
+
+  if (
+    claim.subject_world_element_id &&
+    (claim.kind === "attribute" ||
+      claim.kind === "world_rule" ||
+      claim.kind === "entity_introduction")
+  ) {
+    return {
+      table: "world_elements",
+      id: claim.subject_world_element_id,
+      field: "description",
+      value: obj,
+      category: claim.proposed_world_category,
+    };
+  }
+
+  if (claim.subject_relationship_id && claim.kind === "relationship") {
+    const statePredicates = new Set([
+      "status",
+      "current_state",
+      "together",
+      "separated",
+    ]);
+    return {
+      table: "relationships",
+      id: claim.subject_relationship_id,
+      field: statePredicates.has(pred) ? "current_state" : "arc_notes",
+      value: `${claim.predicate}: ${obj}`,
+    };
+  }
+
+  return null;
+}
+
 /**
  * Applies a confirmed continuity claim to canonical tables.
- * Keep this mapping small and explicit — easy to audit.
+ * Keep this mapping small and explicit - easy to audit.
  */
 export async function applyClaimToCanon(
   supabase: SupabaseClient,
   claim: ContinuityClaim,
 ): Promise<void> {
   const projectId = claim.project_id;
-  const pred = claim.predicate.toLowerCase();
   const obj = claim.object_text.trim();
 
   if (claim.kind === "entity_introduction" && claim.subject_type === "character") {
@@ -43,61 +177,53 @@ export async function applyClaimToCanon(
     return;
   }
 
-  if (
-    claim.subject_character_id &&
-    (claim.kind === "attribute" || claim.kind === "entity_introduction")
-  ) {
+  const patch = buildCanonPatchForClaim(claim);
+  if (!patch) return;
+
+  if (patch.table === "characters") {
     const { data: row } = await supabase
       .from("characters")
       .select("*")
-      .eq("id", claim.subject_character_id)
+      .eq("id", patch.id)
       .maybeSingle();
     if (!row) return;
 
-    const patch: Record<string, string | null> = {};
-
-    if (pred === "fears" || pred === "wound") {
-      patch.wound = appendField(row.wound as string | null, obj || pred);
-    } else if (pred === "desire") {
-      patch.desire = appendField(row.desire as string | null, obj);
-    } else if (pred === "need") {
-      patch.need = appendField(row.need as string | null, obj);
-    } else if (pred === "appearance") {
-      patch.appearance = appendField(row.appearance as string | null, obj);
-    } else if (pred === "backstory") {
-      patch.backstory = appendField(row.backstory as string | null, obj);
-    } else if (pred === "voice" || pred === "voice_notes") {
-      patch.voice_notes = appendField(row.voice_notes as string | null, obj);
-    } else if (pred === "powers" || pred === "power") {
-      patch.powers = appendField(row.powers as string | null, obj);
-    } else {
-      patch.voice_notes = appendField(
-        row.voice_notes as string | null,
-        `${claim.predicate}: ${obj}`,
-      );
-    }
-
-    if (Object.keys(patch).length) {
-      await supabase.from("characters").update(patch).eq("id", row.id);
-    }
+    const current = (row as Record<string, string | null>)[patch.field];
+    await supabase
+      .from("characters")
+      .update({ [patch.field]: appendField(current, patch.value) })
+      .eq("id", row.id);
     return;
   }
 
-  if (
-    claim.subject_world_element_id &&
-    (claim.kind === "attribute" || claim.kind === "world_rule")
-  ) {
+  if (patch.table === "world_elements") {
     const { data: row } = await supabase
       .from("world_elements")
       .select("*")
-      .eq("id", claim.subject_world_element_id)
+      .eq("id", patch.id)
       .maybeSingle();
     if (!row) return;
     await supabase
       .from("world_elements")
       .update({
-        description: appendField(row.description as string | null, obj),
+        description: appendField(row.description as string | null, patch.value),
+        category: (row.category as string | null) ?? patch.category,
       })
+      .eq("id", row.id);
+    return;
+  }
+
+  if (patch.table === "relationships") {
+    const { data: row } = await supabase
+      .from("relationships")
+      .select("*")
+      .eq("id", patch.id)
+      .maybeSingle();
+    if (!row) return;
+    const current = (row as Record<string, string | null>)[patch.field];
+    await supabase
+      .from("relationships")
+      .update({ [patch.field]: appendField(current, patch.value) })
       .eq("id", row.id);
   }
 }

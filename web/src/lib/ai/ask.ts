@@ -8,6 +8,7 @@ import {
 } from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { buildContext } from "@/lib/ai/context";
+import { buildPartnerDraftContext } from "@/lib/ai/draft-context";
 import { fetchContinuityFactsForScene } from "@/lib/ai/continuity/context-block";
 import { listCurrentDocs } from "@/lib/wiki/repo";
 import { env } from "@/lib/env";
@@ -118,6 +119,19 @@ export async function askPersona(input: AskInput): Promise<{
       );
     }
 
+    let draftContext: string | null = null;
+    if (persona.key === "partner" && currentScene) {
+      const previousScene = await loadPreviousSceneForDraft(
+        supabase,
+        project.id,
+        currentScene,
+      );
+      draftContext = buildPartnerDraftContext({
+        currentScene,
+        previousScene,
+      });
+    }
+
     const system = buildContext({
       project: project as Project,
       tropes: (tropes ?? []).map((t) => t.trope),
@@ -129,6 +143,7 @@ export async function askPersona(input: AskInput): Promise<{
       currentChapterTitle,
       currentScene,
       continuityFacts,
+      draftContext,
       wikiDocs,
     });
 
@@ -166,4 +181,56 @@ export async function askPersona(input: AskInput): Promise<{
       error: err instanceof Error ? err.message : "Request failed.",
     };
   }
+}
+
+async function loadPreviousSceneForDraft(
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  projectId: string,
+  currentScene: Scene,
+): Promise<Scene | null> {
+  try {
+    if (currentScene.order_index !== null) {
+      const { data: previousInChapter } = await supabase
+        .from("scenes")
+        .select("*")
+        .eq("chapter_id", currentScene.chapter_id)
+        .lt("order_index", currentScene.order_index)
+        .order("order_index", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (previousInChapter) return previousInChapter as Scene;
+    }
+
+    const { data: chapter } = await supabase
+      .from("chapters")
+      .select("order_index")
+      .eq("id", currentScene.chapter_id)
+      .eq("project_id", projectId)
+      .maybeSingle();
+    const chapterOrder = chapter?.order_index;
+    if (typeof chapterOrder !== "number") return null;
+
+    const { data: previousChapters } = await supabase
+      .from("chapters")
+      .select("id")
+      .eq("project_id", projectId)
+      .lt("order_index", chapterOrder)
+      .order("order_index", { ascending: false })
+      .limit(5);
+
+    for (const previousChapter of previousChapters ?? []) {
+      const { data: previousScene } = await supabase
+        .from("scenes")
+        .select("*")
+        .eq("chapter_id", previousChapter.id)
+        .order("order_index", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (previousScene) return previousScene as Scene;
+    }
+  } catch (err) {
+    console.error("loadPreviousSceneForDraft failed:", err);
+  }
+
+  return null;
 }

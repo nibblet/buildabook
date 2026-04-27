@@ -22,6 +22,8 @@ export const ExtractedClaimRaw = z.object({
   paragraph_start: z.number().int().min(0),
   paragraph_end: z.number().int().min(0),
   confidence: z.enum(["low", "medium", "high"]),
+  proposed_world_category: z.string().optional().nullable(),
+  relationship_character_labels: z.array(z.string()).max(2).optional().default([]),
 });
 
 export const ExtractedContradiction = z.object({

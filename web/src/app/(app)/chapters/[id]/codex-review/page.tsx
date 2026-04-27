@@ -40,13 +40,49 @@ export default async function CodexReviewPage({
     claims = (rows ?? []) as ContinuityClaim[];
   }
 
+  const [{ data: characters }, { data: worlds }, { data: relationships }] =
+    await Promise.all([
+      supabase
+        .from("characters")
+        .select("id, name, aliases")
+        .eq("project_id", project.id)
+        .order("name"),
+      supabase
+        .from("world_elements")
+        .select("id, name, category, aliases")
+        .eq("project_id", project.id)
+        .order("name"),
+      supabase
+        .from("relationships")
+        .select("id, type, current_state, char_a_id, char_b_id")
+        .eq("project_id", project.id),
+    ]);
+
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8">
       <CodexReviewClient
         chapterId={chapterId}
         chapterTitle={chapter.title}
         claims={claims}
         scenes={(scenes ?? []) as { id: string; title: string | null; order_index: number | null }[]}
+        characters={(characters ?? []) as {
+          id: string;
+          name: string | null;
+          aliases: string[] | null;
+        }[]}
+        worlds={(worlds ?? []) as {
+          id: string;
+          name: string | null;
+          category: string | null;
+          aliases: string[] | null;
+        }[]}
+        relationships={(relationships ?? []) as {
+          id: string;
+          type: string | null;
+          current_state: string | null;
+          char_a_id: string | null;
+          char_b_id: string | null;
+        }[]}
       />
       <p className="mt-10 text-center text-xs text-muted-foreground">
         <Link href={`/chapters/${chapterId}`} className="underline-offset-4 hover:underline">

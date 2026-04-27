@@ -137,6 +137,12 @@ export default async function ChapterPage({
             Scenes
           </h2>
           <div className="flex items-center gap-2">
+            <Link
+              href="/import"
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              Import
+            </Link>
             <BulkAddScenesButton chapterId={chapter.id} />
             <AddSceneButton chapterId={chapter.id} />
           </div>

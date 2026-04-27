@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOrCreateProject } from "@/lib/projects";
 import { ScratchpadClient } from "./scratchpad-client";
@@ -24,6 +25,12 @@ export default async function ScratchpadPage() {
           propose beats, chapters, and scenes, then pick which to commit to
           your outline.
         </p>
+        <Link
+          href="/import"
+          className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Import a full scene or chapter
+        </Link>
       </header>
 
       <ScratchpadClient

@@ -41,9 +41,14 @@ export function ManuscriptReaderClient({
             Dashboard
           </Link>
         </Button>
-        <span className="text-xs text-muted-foreground">
-          {formatNumber(totalWords)} words
-        </span>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/import">Import</Link>
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {formatNumber(totalWords)} words
+          </span>
+        </div>
       </header>
 
       <div className="mx-auto max-w-[40rem] px-6 py-10 pb-24 md:px-8">

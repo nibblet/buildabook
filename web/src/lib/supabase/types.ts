@@ -121,6 +121,16 @@ export type ContinuityClaim = {
   subject_character_id: string | null;
   subject_world_element_id: string | null;
   subject_relationship_id: string | null;
+  proposed_destination_type:
+    | "character"
+    | "world_element"
+    | "relationship"
+    | "scene"
+    | "unresolved"
+    | null;
+  proposed_world_category: string | null;
+  resolution_status: "resolved" | "candidate" | "ambiguous" | "unresolved";
+  resolution_note: string | null;
   predicate: string;
   object_text: string;
   confidence: "low" | "medium" | "high";
