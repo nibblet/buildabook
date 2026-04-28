@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   acceptHighConfidenceClaimsChapterAction,
+  buildCharacterFromClaimsAction,
   confirmClaimIdsAction,
   rejectAllAutoClaimsChapterAction,
   rejectClaimIdsAction,
@@ -54,10 +55,12 @@ export function CodexReviewClient({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [confidenceFilter, setConfidenceFilter] = useState<
     "all" | "high" | "medium" | "low"
-  >("all");
+  >("high");
+  const [showEventClaims, setShowEventClaims] = useState(false);
   const [targetCharacterId, setTargetCharacterId] = useState("");
   const [targetWorldId, setTargetWorldId] = useState("");
   const [targetRelationshipId, setTargetRelationshipId] = useState("");
+  const [newCharacterName, setNewCharacterName] = useState("");
   const [aliasText, setAliasText] = useState("");
   const [worldCategory, setWorldCategory] = useState("");
 
@@ -69,10 +72,13 @@ export function CodexReviewClient({
 
   const visibleClaims = useMemo(
     () =>
-      claims.filter((c) =>
-        confidenceFilter === "all" ? true : c.confidence === confidenceFilter,
-      ),
-    [claims, confidenceFilter],
+      claims.filter((c) => {
+        const confidenceMatch =
+          confidenceFilter === "all" ? true : c.confidence === confidenceFilter;
+        const eventMatch = showEventClaims ? true : c.kind !== "event";
+        return confidenceMatch && eventMatch;
+      }),
+    [claims, confidenceFilter, showEventClaims],
   );
 
   const characterById = useMemo(() => {
@@ -283,6 +289,27 @@ export function CodexReviewClient({
     });
   }
 
+  function buildCharacterFromSelected() {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setMsg(null);
+    start(async () => {
+      const res = await buildCharacterFromClaimsAction({
+        chapterId,
+        claimIds: ids,
+        name: newCharacterName.trim() || null,
+      });
+      if (res.ok) {
+        setSelectedIds(new Set());
+        setNewCharacterName("");
+        setMsg(`Built character from ${res.count ?? 0} claim(s).`);
+        router.refresh();
+      } else {
+        setMsg(res.error ?? "Failed.");
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -365,6 +392,14 @@ export function CodexReviewClient({
         <Button
           type="button"
           size="sm"
+          variant={showEventClaims ? "default" : "outline"}
+          onClick={() => setShowEventClaims((v) => !v)}
+        >
+          {showEventClaims ? "Showing events" : "Hiding event noise"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
           onClick={confirmSelected}
           disabled={pending || !selectedIds.size}
         >
@@ -390,6 +425,21 @@ export function CodexReviewClient({
       <div className="rounded-md border bg-card p-3">
         <p className="mb-2 text-sm font-medium">Resolve selected claims</p>
         <div className="grid gap-2 md:grid-cols-2">
+          <input
+            value={newCharacterName}
+            onChange={(e) => setNewCharacterName(e.target.value)}
+            placeholder="New character name (optional)"
+            className="rounded-md border bg-background px-2 py-2 text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={buildCharacterFromSelected}
+            disabled={pending || !selectedIds.size}
+          >
+            Build character from selected
+          </Button>
+
           <select
             value={targetCharacterId}
             onChange={(e) => setTargetCharacterId(e.target.value)}

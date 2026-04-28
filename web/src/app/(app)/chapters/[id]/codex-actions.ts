@@ -286,3 +286,94 @@ export async function resolveClaimsToRelationshipAction(input: {
     };
   }
 }
+
+export async function buildCharacterFromClaimsAction(input: {
+  chapterId: string;
+  claimIds: string[];
+  name: string | null;
+}): Promise<{ ok: boolean; count?: number; characterId?: string; error?: string }> {
+  try {
+    if (!input.claimIds.length) return { ok: true, count: 0 };
+    const supabase = await supabaseServer();
+    const { data: rows, error: rowsError } = await supabase
+      .from("continuity_claims")
+      .select("id, project_id, subject_label, predicate, object_text")
+      .in("id", input.claimIds);
+    if (rowsError) throw rowsError;
+    if (!rows?.length) return { ok: true, count: 0 };
+
+    const projectId = rows[0]?.project_id;
+    if (!projectId) return { ok: false, error: "Missing project for selected claims." };
+
+    const labels = rows
+      .map((r) => (r.subject_label ?? "").trim())
+      .filter(Boolean);
+    const fallbackName = labels[0] ?? "Unnamed Character";
+    const name = (input.name ?? "").trim() || fallbackName;
+
+    const byLabel = new Map<string, number>();
+    for (const label of labels) byLabel.set(label, (byLabel.get(label) ?? 0) + 1);
+    const aliases = [...byLabel.keys()].filter((label) => label.toLowerCase() !== name.toLowerCase());
+
+    const summaryLines = rows
+      .slice(0, 5)
+      .map((r) => `${r.predicate}: ${r.object_text}`)
+      .filter(Boolean);
+    const voiceNotes = summaryLines.length
+      ? `Built from codex review:\n${summaryLines.join("\n")}`
+      : "Built from codex review.";
+
+    const { data: existing } = await supabase
+      .from("characters")
+      .select("id, aliases")
+      .eq("project_id", projectId)
+      .ilike("name", name)
+      .maybeSingle();
+
+    let characterId = existing?.id ?? null;
+    if (existing?.id) {
+      const mergedAliases = new Set<string>(existing.aliases ?? []);
+      for (const alias of aliases) mergedAliases.add(alias);
+      await supabase
+        .from("characters")
+        .update({ aliases: [...mergedAliases] })
+        .eq("id", existing.id);
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from("characters")
+        .insert({
+          project_id: projectId,
+          name,
+          aliases,
+          voice_notes: voiceNotes,
+        })
+        .select("id")
+        .single();
+      if (insertError) throw insertError;
+      characterId = inserted.id;
+    }
+
+    const { error: updateError } = await supabase
+      .from("continuity_claims")
+      .update({
+        subject_character_id: characterId,
+        subject_world_element_id: null,
+        subject_relationship_id: null,
+        proposed_destination_type: "character",
+        resolution_status: "resolved",
+        resolution_note: null,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", input.claimIds);
+    if (updateError) throw updateError;
+
+    revalidatePath(`/chapters/${input.chapterId}`);
+    revalidatePath(`/chapters/${input.chapterId}/codex-review`);
+    return { ok: true, count: input.claimIds.length, characterId };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed.",
+    };
+  }
+}

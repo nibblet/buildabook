@@ -47,9 +47,57 @@ function continuityEditorSystemPrompt(): string {
 Rules:
 - Every claim must be directly supported by the numbered paragraphs. Prefer NO claim over a guess.
 - Self-report confidence: high if explicitly stated; medium if strongly implied; low if inferred from subtext.
+- Prioritize canon-worthy continuity facts (identity, relationship state, world rules, durable traits).
+- Transient choreography/body-position beats ("nods", "leans", "presses", "steps", etc.) are usually low-value continuity; omit them when possible. If included, mark confidence low.
 - Use subject_ref_hint ONLY when you mean an existing entity UUID from the ENTITY INDEX.
 - paragraph_start / paragraph_end are inclusive 0-based indices into the numbered paragraphs below.
 - Return ONLY valid JSON (one object, double-quoted keys, no markdown fences).`;
+}
+
+function isLikelyTransientNoise(claim: ExtractedClaimRawT): boolean {
+  const genericSubjects = new Set([
+    "air",
+    "room",
+    "hall",
+    "stage",
+    "light",
+    "music",
+    "sound",
+  ]);
+  const transientPredicates = new Set([
+    "nods",
+    "nod",
+    "leans",
+    "lean",
+    "presses",
+    "press",
+    "braced",
+    "collapses",
+    "collapsed",
+    "tightens",
+    "tightened",
+    "whispered",
+    "flicked",
+    "gripped",
+    "straddled",
+    "feels",
+    "says",
+    "stands",
+    "looses",
+    "loosens",
+  ]);
+  const subject = claim.subject_label.trim().toLowerCase();
+  const predicate = claim.predicate.trim().toLowerCase();
+  if (genericSubjects.has(subject)) return true;
+  if (claim.kind === "event" && transientPredicates.has(predicate)) return true;
+  return false;
+}
+
+function normalizeClaimConfidence(
+  claim: ExtractedClaimRawT,
+): "low" | "medium" | "high" {
+  if (isLikelyTransientNoise(claim)) return "low";
+  return claim.confidence;
 }
 
 function buildUserPrompt(input: {
@@ -338,7 +386,7 @@ export async function extractContinuity(sceneId: string): Promise<void> {
         : resolved.resolution_note,
       predicate: c.predicate,
       object_text: c.object_text,
-      confidence: c.confidence,
+      confidence: normalizeClaimConfidence(c),
       status: "auto" as const,
       superseded_by: null as string | null,
       tier: null as string | null,
