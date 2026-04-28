@@ -55,8 +55,8 @@ export function CodexReviewClient({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [confidenceFilter, setConfidenceFilter] = useState<
     "all" | "high" | "medium" | "low"
-  >("high");
-  const [showEventClaims, setShowEventClaims] = useState(false);
+  >("all");
+  const [showEventClaims, setShowEventClaims] = useState(true);
   const [targetCharacterId, setTargetCharacterId] = useState("");
   const [targetWorldId, setTargetWorldId] = useState("");
   const [targetRelationshipId, setTargetRelationshipId] = useState("");
@@ -103,6 +103,20 @@ export function CodexReviewClient({
     }
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [visibleClaims]);
+
+  const counts = useMemo(() => {
+    let high = 0;
+    let medium = 0;
+    let low = 0;
+    let events = 0;
+    for (const claim of claims) {
+      if (claim.confidence === "high") high += 1;
+      else if (claim.confidence === "medium") medium += 1;
+      else low += 1;
+      if (claim.kind === "event") events += 1;
+    }
+    return { high, medium, low, events };
+  }, [claims]);
 
   function selectClaims(nextClaims: ContinuityClaim[]) {
     setSelectedIds(new Set(nextClaims.map((c) => c.id)));
@@ -395,7 +409,7 @@ export function CodexReviewClient({
           variant={showEventClaims ? "default" : "outline"}
           onClick={() => setShowEventClaims((v) => !v)}
         >
-          {showEventClaims ? "Showing events" : "Hiding event noise"}
+          {showEventClaims ? "Showing events" : "Hide event noise"}
         </Button>
         <Button
           type="button"
@@ -420,6 +434,18 @@ export function CodexReviewClient({
         <Button type="button" size="sm" variant="destructive" onClick={rejectAll}>
           Reject all (chapter)
         </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        <span>{visibleClaims.length} visible</span>
+        <span>•</span>
+        <span>{counts.high} high</span>
+        <span>•</span>
+        <span>{counts.medium} medium</span>
+        <span>•</span>
+        <span>{counts.low} low</span>
+        <span>•</span>
+        <span>{counts.events} events</span>
       </div>
 
       <div className="rounded-md border bg-card p-3">

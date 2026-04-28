@@ -48,7 +48,7 @@ Rules:
 - Every claim must be directly supported by the numbered paragraphs. Prefer NO claim over a guess.
 - Self-report confidence: high if explicitly stated; medium if strongly implied; low if inferred from subtext.
 - Prioritize canon-worthy continuity facts (identity, relationship state, world rules, durable traits).
-- Transient choreography/body-position beats ("nods", "leans", "presses", "steps", etc.) are usually low-value continuity; omit them when possible. If included, mark confidence low.
+- Transient choreography/body-position beats ("nods", "leans", "presses", "steps", etc.) are usually low-value continuity; prefer medium/low confidence unless they imply durable relationship or character change.
 - Use subject_ref_hint ONLY when you mean an existing entity UUID from the ENTITY INDEX.
 - paragraph_start / paragraph_end are inclusive 0-based indices into the numbered paragraphs below.
 - Return ONLY valid JSON (one object, double-quoted keys, no markdown fences).`;
@@ -96,7 +96,12 @@ function isLikelyTransientNoise(claim: ExtractedClaimRawT): boolean {
 function normalizeClaimConfidence(
   claim: ExtractedClaimRawT,
 ): "low" | "medium" | "high" {
-  if (isLikelyTransientNoise(claim)) return "low";
+  if (isLikelyTransientNoise(claim)) {
+    if (claim.subject_type === "unknown" || claim.subject_type === "scene") {
+      return "low";
+    }
+    return claim.confidence === "high" ? "medium" : claim.confidence;
+  }
   return claim.confidence;
 }
 
