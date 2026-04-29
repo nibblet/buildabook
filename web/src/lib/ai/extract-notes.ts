@@ -115,6 +115,8 @@ function systemPrompt(): string {
 
 Be faithful to the notes. Do NOT invent plot points, characters, or locations the notes do not imply. If the notes are sparse, propose less rather than padding.
 
+Authors often paste a whole chapter arc in one block. When notes imply several distinct beats (time jumps, setting changes, separate messages vs in-person beats, setup vs payoff vs aftermath), split them into multiple scenes — do not merge a chapter-length beat list into a single scene.
+
 Prefer proposing additions to what already exists rather than duplicates. Reuse existing titles when the notes clearly reference them; only propose NEW items.
 
 Return ONLY valid JSON — one top-level object, double-quoted keys, no trailing commas, no markdown fences, no commentary before or after.`;
@@ -143,16 +145,21 @@ Return a JSON object with this shape. Use stable short strings for every "key" f
       "key": "sc1",
       "chapter_key": "ch1",
       "chapter_title": null,
-      "title": "Mara reads the letter",
-      "goal": "What the POV wants in this scene (specific).",
-      "conflict": "What blocks or complicates that want.",
-      "outcome": "What changes by the end (plot + emotional beat).",
-      "blueprint": {
-        "intent": "Dramatic purpose: why this scene exists structurally.",
-        "reader_takeaway": "What the reader should know or feel.",
-        "character_shift": "Internal / relational change for the POV or key relationship.",
-        "research_notes": "Setting, continuity, sensory, or craft notes that inform drafting."
-      }
+      "title": "Deal struck — Marcus and Nicole agree",
+      "goal": "...",
+      "conflict": "...",
+      "outcome": "...",
+      "blueprint": { "intent": "...", "reader_takeaway": "...", "character_shift": "...", "research_notes": "..." }
+    },
+    {
+      "key": "sc2",
+      "chapter_key": "ch1",
+      "chapter_title": null,
+      "title": "Arrival at the club — meeting the couple",
+      "goal": "...",
+      "conflict": "...",
+      "outcome": "...",
+      "blueprint": null
     }
   ],
   "open_questions": [
@@ -163,15 +170,20 @@ Return a JSON object with this shape. Use stable short strings for every "key" f
 RULES:
 - Include only fields you can justify from the notes.
 - Empty arrays are fine — prefer precision over volume.
-- At most 10 items per category. If the notes suggest more, pick the clearest.
+- At most 12 scenes and 10 items in each other category. If the notes suggest more scenes than fit, merge only the truly redundant beats; prefer keeping separate scenes when time, place, or dramatic beat changes.
 - Titles should be short (under 60 chars).
 - "title" fields for scenes may be a one-line beat summary, not formal prose titles.
 
-SCENE DEPTH (critical):
-- When the notes give substantive detail for a scene (multiple sentences, specific beats, dialogue beats, setting, internal thought, or stakes), treat it as RICH. Then:
-  - "goal", "conflict", and "outcome" must reflect that specificity — use enough sentences to preserve names, stakes, and turning points from the notes. Do not collapse rich notes into vague one-liners.
-  - Populate "blueprint" for that scene: split surviving nuance across intent (why this scene matters structurally), reader_takeaway (emotional/cognitive landing), character_shift (who changes and how), research_notes (setting, continuity hooks, sensory or logistical detail useful while drafting). Omit blueprint keys you cannot ground in the notes.
-- When notes are sparse for a scene, keep goal/conflict/outcome brief and omit "blueprint" or leave most blueprint fields null.
+MULTI-SCENE SPLITTING (critical):
+- One pasted block often describes 3–6 scenes. Default to multiple scenes when the notes contain any of: distinct time markers ("that night", "tomorrow", "eventually", "after"); separate communications vs in-person action; location moves (text thread → home prep → new venue → private room → aftermath leaving); or clear dramatic phases (deal/agreement → anticipation → arrival → escalation → climax → denouement).
+- Each scene should carry only the goal/conflict/outcome and blueprint detail that belong to that beat — do not stuff the entire chapter outline into one scene's fields.
+- Order scenes in narrative order. Use sequential keys (sc1, sc2, …) under the same chapter_key when they belong to one proposed chapter.
+
+SCENE DEPTH:
+- When the notes give substantive detail for a beat (multiple sentences, specific stakes, dialogue, blocking), treat that beat as RICH. Then for that scene:
+  - "goal", "conflict", and "outcome" must reflect that specificity — use enough sentences to preserve names, stakes, and turning points from the notes for that beat only. Do not collapse into vague one-liners.
+  - Populate "blueprint" when useful: intent, reader_takeaway, character_shift, research_notes grounded in that beat. Omit blueprint keys you cannot justify.
+- When a beat is sparse, keep goal/conflict/outcome brief and omit or minimize "blueprint".
 
 NOTES:
 ${notes}`;
@@ -202,7 +214,7 @@ export async function proposeFromNotes(
     user: userPrompt(notes, existing),
     model,
     temperature: 0.3,
-    maxTokens: 4096,
+    maxTokens: 8192,
     projectId: opts?.projectId ?? null,
     contextType: "scratchpad",
     writingProfile: wp,
