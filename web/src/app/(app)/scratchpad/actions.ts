@@ -6,8 +6,27 @@ import { getOrCreateProject } from "@/lib/projects";
 import {
   proposeFromNotes,
   type Proposal,
+  type ProposedSceneT,
   ProposalSchema,
 } from "@/lib/ai/extract-notes";
+import {
+  blueprintIsEmpty,
+  parseSceneBlueprint,
+} from "@/lib/scene-blueprint";
+
+function sceneBlueprintForInsert(
+  raw: ProposedSceneT["blueprint"],
+): Record<string, string> {
+  if (raw == null) return {};
+  const p = parseSceneBlueprint(raw);
+  if (blueprintIsEmpty(p)) return {};
+  const o: Record<string, string> = {};
+  if (p.intent?.trim()) o.intent = p.intent.trim();
+  if (p.reader_takeaway?.trim()) o.reader_takeaway = p.reader_takeaway.trim();
+  if (p.character_shift?.trim()) o.character_shift = p.character_shift.trim();
+  if (p.research_notes?.trim()) o.research_notes = p.research_notes.trim();
+  return o;
+}
 
 export type ScratchpadRow = {
   id: string;
@@ -305,16 +324,20 @@ export async function promoteProposal(
         0,
       );
       const { error } = await supabase.from("scenes").insert(
-        scenes.map((s, idx) => ({
-          chapter_id: chapterId,
-          order_index: startOrder + idx,
-          title: s.title,
-          goal: s.goal ?? null,
-          conflict: s.conflict ?? null,
-          outcome: s.outcome ?? null,
-          status: "planned" as const,
-          wordcount: 0,
-        })),
+        scenes.map((s, idx) => {
+          const blueprint = sceneBlueprintForInsert(s.blueprint);
+          return {
+            chapter_id: chapterId,
+            order_index: startOrder + idx,
+            title: s.title,
+            goal: s.goal ?? null,
+            conflict: s.conflict ?? null,
+            outcome: s.outcome ?? null,
+            blueprint,
+            status: "planned" as const,
+            wordcount: 0,
+          };
+        }),
       );
       if (error) throw error;
       scenesCreated += scenes.length;

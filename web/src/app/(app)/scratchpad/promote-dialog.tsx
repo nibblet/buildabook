@@ -130,16 +130,32 @@ export function PromoteDialog({
           <Group
             title="Scenes"
             emptyLabel="No new scenes proposed."
-            items={proposal.scenes.map((s) => ({
-              key: s.key,
-              primary: s.title,
-              secondary: [s.goal, s.conflict, s.outcome]
+            items={proposal.scenes.map((s) => {
+              const gco = [s.goal, s.conflict, s.outcome]
                 .filter(Boolean)
-                .join(" · "),
-              meta: s.chapter_key ?? s.chapter_title ?? undefined,
-              checked: isChecked("sceneKeys", s.key),
-              onToggle: () => toggle("sceneKeys", s.key),
-            }))}
+                .join(" · ");
+              const bp = s.blueprint;
+              const blueprintBits =
+                bp &&
+                [
+                  bp.intent?.trim() && `Intent: ${bp.intent.trim()}`,
+                  bp.reader_takeaway?.trim() &&
+                    `Takeaway: ${bp.reader_takeaway.trim()}`,
+                  bp.character_shift?.trim() && `Shift: ${bp.character_shift.trim()}`,
+                  bp.research_notes?.trim() && `Notes: ${bp.research_notes.trim()}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+              const secondary = [gco, blueprintBits].filter(Boolean).join(" │ ") || undefined;
+              return {
+                key: s.key,
+                primary: s.title,
+                secondary,
+                meta: s.chapter_key ?? s.chapter_title ?? undefined,
+                checked: isChecked("sceneKeys", s.key),
+                onToggle: () => toggle("sceneKeys", s.key),
+              };
+            })}
           />
           {proposal.open_questions.length > 0 && (
             <div>

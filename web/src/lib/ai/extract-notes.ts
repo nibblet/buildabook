@@ -37,6 +37,14 @@ const ProposedChapter = z.object({
   beat_keys: z.array(z.string()).optional().default([]),
 });
 
+/** Mirrors SceneBlueprint fields saved on promote (pre-write planning). */
+const ProposedSceneBlueprintFields = z.object({
+  intent: z.string().optional().nullable(),
+  reader_takeaway: z.string().optional().nullable(),
+  character_shift: z.string().optional().nullable(),
+  research_notes: z.string().optional().nullable(),
+});
+
 const ProposedScene = z.object({
   key: z.string(),
   chapter_key: z.string().optional().nullable(),
@@ -45,6 +53,7 @@ const ProposedScene = z.object({
   goal: z.string().optional().nullable(),
   conflict: z.string().optional().nullable(),
   outcome: z.string().optional().nullable(),
+  blueprint: ProposedSceneBlueprintFields.optional().nullable(),
 });
 
 export const ProposalSchema = z.object({
@@ -130,7 +139,21 @@ Return a JSON object with this shape. Use stable short strings for every "key" f
     { "key": "ch1", "title": "The Offer", "synopsis": "...", "pov_character_name": "Mara", "beat_keys": ["b1"] }
   ],
   "scenes": [
-    { "key": "sc1", "chapter_key": "ch1", "chapter_title": null, "title": "Mara reads the letter", "goal": "...", "conflict": "...", "outcome": "..." }
+    {
+      "key": "sc1",
+      "chapter_key": "ch1",
+      "chapter_title": null,
+      "title": "Mara reads the letter",
+      "goal": "What the POV wants in this scene (specific).",
+      "conflict": "What blocks or complicates that want.",
+      "outcome": "What changes by the end (plot + emotional beat).",
+      "blueprint": {
+        "intent": "Dramatic purpose: why this scene exists structurally.",
+        "reader_takeaway": "What the reader should know or feel.",
+        "character_shift": "Internal / relational change for the POV or key relationship.",
+        "research_notes": "Setting, continuity, sensory, or craft notes that inform drafting."
+      }
+    }
   ],
   "open_questions": [
     "Short question the notes raised but did not answer."
@@ -143,6 +166,12 @@ RULES:
 - At most 10 items per category. If the notes suggest more, pick the clearest.
 - Titles should be short (under 60 chars).
 - "title" fields for scenes may be a one-line beat summary, not formal prose titles.
+
+SCENE DEPTH (critical):
+- When the notes give substantive detail for a scene (multiple sentences, specific beats, dialogue beats, setting, internal thought, or stakes), treat it as RICH. Then:
+  - "goal", "conflict", and "outcome" must reflect that specificity — use enough sentences to preserve names, stakes, and turning points from the notes. Do not collapse rich notes into vague one-liners.
+  - Populate "blueprint" for that scene: split surviving nuance across intent (why this scene matters structurally), reader_takeaway (emotional/cognitive landing), character_shift (who changes and how), research_notes (setting, continuity hooks, sensory or logistical detail useful while drafting). Omit blueprint keys you cannot ground in the notes.
+- When notes are sparse for a scene, keep goal/conflict/outcome brief and omit "blueprint" or leave most blueprint fields null.
 
 NOTES:
 ${notes}`;
