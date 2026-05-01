@@ -247,6 +247,15 @@
   border-bottom-color: var(--destructive);
 }
 
+.tiptap .find-match {
+  background: color-mix(in oklab, #facc15 35%, transparent);
+  border-radius: 0.125rem;
+}
+.tiptap .find-match-active {
+  background: color-mix(in oklab, #f59e0b 70%, transparent);
+  outline: 2px solid color-mix(in oklab, #f59e0b 80%, transparent);
+}
+
 /* ─── Writing mode surface overrides ──────────────────────────────── */
 
 /* In writing mode, no shadows on contained surfaces */

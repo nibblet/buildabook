@@ -35,6 +35,11 @@ import { WikiLink } from "@/lib/tiptap/wiki-link-node";
 import { wikiLinkSuggestion } from "@/lib/tiptap/wiki-link-suggestion";
 import { paragraphsFromPlainText } from "@/lib/tiptap/plain-text-paragraphs";
 import { AiEditReviewDialog } from "@/components/ai-edit-review-dialog";
+import { FindHighlight, findHighlightKey } from "@/lib/editor/find-highlight";
+import {
+  FindReplacePanel,
+  type EntityForRename,
+} from "@/components/find-replace-panel";
 
 export type ReviewPayload =
   | {
@@ -57,6 +62,7 @@ export type ProseEditorHandle = {
   getText: () => string;
   getHTML: () => string;
   setContent: (html: string) => void;
+  openFindReplace: (mode?: "find" | "replace") => void;
 };
 
 type Props = {
@@ -73,6 +79,17 @@ type Props = {
   continuityDial?: ContinuityDial;
   continuityRefreshKey?: number;
   enableWikiLinks?: boolean;
+  enableFindReplace?: boolean;
+  /** Project characters — used for entity-aware rename in the find/replace panel. */
+  charactersForRename?: EntityForRename[];
+  /** Project world elements — used for entity-aware rename. */
+  worldElementsForRename?: EntityForRename[];
+  /** Server action to update the entity record (rename + push old name to aliases). */
+  onRenameEntity?: (
+    entityType: "character" | "world_element",
+    entityId: string,
+    newName: string,
+  ) => Promise<void>;
 };
 
 const INLINE_ACTIONS: { mode: InlineAssistMode; label: string }[] = [
@@ -98,6 +115,10 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       continuityDial,
       continuityRefreshKey,
       enableWikiLinks,
+      enableFindReplace,
+      charactersForRename,
+      worldElementsForRename,
+      onRenameEntity,
     },
     ref,
   ) {
@@ -120,6 +141,10 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       null,
     );
     const skipRangeClearOnCustomClose = useRef(false);
+    const [findOpen, setFindOpen] = useState(false);
+    const [findInitialMode, setFindInitialMode] = useState<"find" | "replace">(
+      "find",
+    );
 
     const dismissUndoBanner = useCallback(() => {
       setUndoBannerVisible(false);
@@ -166,6 +191,7 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
         ...(enableWikiLinks
           ? [WikiLink.configure({ suggestion: wikiLinkSuggestion })]
           : []),
+        ...(enableFindReplace ? [FindHighlight] : []),
       ],
       content: initialContent || "",
       editorProps: {
@@ -388,6 +414,15 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       dismissUndoBanner();
     }, [editor, dismissUndoBanner]);
 
+    const openFindReplace = useCallback(
+      (mode: "find" | "replace" = "find") => {
+        if (!enableFindReplace) return;
+        setFindInitialMode(mode);
+        setFindOpen(true);
+      },
+      [enableFindReplace],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
@@ -408,9 +443,41 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
         getText: () => editor?.getText() || "",
         getHTML: () => editor?.getHTML() || "",
         setContent: (html: string) => editor?.commands.setContent(html),
+        openFindReplace,
       }),
-      [editor, replaceSelection, showUndoBanner],
+      [editor, replaceSelection, showUndoBanner, openFindReplace],
     );
+
+    useEffect(() => {
+      if (!enableFindReplace || !editor) return;
+      const handler = (e: KeyboardEvent) => {
+        const meta = e.metaKey || e.ctrlKey;
+        if (!meta) return;
+        if (e.key.toLowerCase() === "f") {
+          if (!editor.view.hasFocus()) return;
+          e.preventDefault();
+          setFindInitialMode("find");
+          setFindOpen(true);
+        } else if (e.key.toLowerCase() === "h" && e.shiftKey) {
+          if (!editor.view.hasFocus() && !findOpen) return;
+          e.preventDefault();
+          setFindInitialMode("replace");
+          setFindOpen(true);
+        }
+      };
+      window.addEventListener("keydown", handler);
+      return () => window.removeEventListener("keydown", handler);
+    }, [editor, enableFindReplace, findOpen]);
+
+    // Clear highlight decorations when the panel closes.
+    useEffect(() => {
+      if (findOpen || !editor) return;
+      const tr = editor.state.tr.setMeta(findHighlightKey, {
+        ranges: [],
+        activeIndex: -1,
+      });
+      editor.view.dispatch(tr);
+    }, [findOpen, editor]);
 
     const showBubble =
       !!editor && !!enableInlineAssist && !!sceneId;
@@ -550,6 +617,16 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
           ) : null}
           {assistError ? (
             <p className="mb-2 text-sm text-destructive">{assistError}</p>
+          ) : null}
+          {enableFindReplace && editor && findOpen ? (
+            <FindReplacePanel
+              editor={editor}
+              initialMode={findInitialMode}
+              characters={charactersForRename ?? []}
+              worldElements={worldElementsForRename ?? []}
+              onClose={() => setFindOpen(false)}
+              onRenameEntity={onRenameEntity}
+            />
           ) : null}
           <EditorContent editor={editor} className={cn(className)} />
           {showBubble && editor ? (

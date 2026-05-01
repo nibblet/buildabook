@@ -14,6 +14,7 @@ import type { ContinuityDial } from "@/lib/ai/continuity/dial";
 import { ProseEditor, type ProseEditorHandle } from "@/components/prose-editor";
 import { TeamPanel } from "@/components/team-panel";
 import {
+  renameEntityFromScene,
   restoreSceneRevision,
   saveSceneContent,
   updateSceneCharacterArc,
@@ -36,6 +37,7 @@ import type {
   Scene,
   SceneCharacterArc,
   SceneRevision,
+  WorldElement,
 } from "@/lib/supabase/types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -48,6 +50,7 @@ export function SceneFocusClient({
   beats,
   arcs,
   revisions,
+  worldElements,
   BackLink,
 }: {
   project: Project;
@@ -57,6 +60,7 @@ export function SceneFocusClient({
   beats: Beat[];
   arcs: SceneCharacterArc[];
   revisions: SceneRevision[];
+  worldElements?: WorldElement[];
   backHref?: string;
   BackLink: React.ReactNode;
 }) {
@@ -368,6 +372,23 @@ export function SceneFocusClient({
             enableInlineAssist
             enableContinuityGutter
             enableWikiLinks
+            enableFindReplace
+            charactersForRename={characters.map((c) => ({
+              id: c.id,
+              name: c.name,
+              aliases: c.aliases ?? [],
+            }))}
+            worldElementsForRename={(worldElements ?? [])
+              .filter((w) => w.name)
+              .map((w) => ({
+                id: w.id,
+                name: w.name as string,
+                aliases: w.aliases ?? [],
+              }))}
+            onRenameEntity={async (entityType, entityId, newName) => {
+              await renameEntityFromScene(entityType, entityId, newName);
+              router.refresh();
+            }}
             continuityDial={continuityDial}
             continuityRefreshKey={continuityRefreshKey}
             initialContent={scene.content ?? ""}

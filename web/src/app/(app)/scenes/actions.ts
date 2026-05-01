@@ -390,6 +390,50 @@ export async function createNextChapter(projectId: string) {
   return { chapterId: data.id as string, sceneId: scene.id as string };
 }
 
+/**
+ * Rename a character or world element. Pushes the previous name into
+ * `aliases` so existing `[[OldName]]` wiki-link mentions continue to resolve.
+ * Scoped to the current user's project for safety.
+ */
+export async function renameEntityFromScene(
+  entityType: "character" | "world_element",
+  entityId: string,
+  newName: string,
+) {
+  const trimmed = newName.trim();
+  if (!trimmed) throw new Error("New name is empty.");
+  const project = await getOrCreateProject();
+  if (!project) throw new Error("No project.");
+  const supabase = await supabaseServer();
+
+  const table = entityType === "character" ? "characters" : "world_elements";
+  const { data: row, error: readErr } = await supabase
+    .from(table)
+    .select("id, project_id, name, aliases")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!row || row.project_id !== project.id) throw new Error("Entity not found.");
+
+  const oldName = (row.name ?? "").trim();
+  if (!oldName || oldName === trimmed) {
+    await supabase.from(table).update({ name: trimmed }).eq("id", entityId);
+    revalidatePath("/");
+    return;
+  }
+
+  const aliases = Array.isArray(row.aliases) ? (row.aliases as string[]) : [];
+  const nextAliases = aliases.includes(oldName) ? aliases : [...aliases, oldName];
+
+  const { error } = await supabase
+    .from(table)
+    .update({ name: trimmed, aliases: nextAliases })
+    .eq("id", entityId);
+  if (error) throw error;
+
+  revalidatePath("/");
+}
+
 export async function saveSceneBlueprint(
   sceneId: string,
   patch: Partial<SceneBlueprint>,

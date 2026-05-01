@@ -12,6 +12,7 @@ import type {
   Scene,
   SceneCharacterArc,
   SceneRevision,
+  WorldElement,
 } from "@/lib/supabase/types";
 
 export default async function SceneFocusPage({
@@ -34,8 +35,13 @@ export default async function SceneFocusPage({
   const chapter = (scene.chapters as unknown as Pick<Chapter, "id" | "title" | "project_id">) || null;
   if (!chapter || chapter.project_id !== project.id) notFound();
 
-  const [{ data: chars }, { data: beats }, { data: arcs }, { data: revisions }] =
-    await Promise.all([
+  const [
+    { data: chars },
+    { data: beats },
+    { data: arcs },
+    { data: revisions },
+    { data: worldElements },
+  ] = await Promise.all([
     supabase.from("characters").select("*").eq("project_id", project.id),
     supabase.from("beats").select("*").eq("project_id", project.id).order("order_index"),
     supabase
@@ -48,7 +54,8 @@ export default async function SceneFocusPage({
       .eq("scene_id", scene.id)
       .order("created_at", { ascending: false })
       .limit(20),
-    ]);
+    supabase.from("world_elements").select("*").eq("project_id", project.id),
+  ]);
 
   const sceneClean = { ...(scene as Scene & { chapters?: unknown }) };
   delete (sceneClean as { chapters?: unknown }).chapters;
@@ -62,6 +69,7 @@ export default async function SceneFocusPage({
       beats={(beats ?? []) as Beat[]}
       arcs={(arcs ?? []) as SceneCharacterArc[]}
       revisions={(revisions ?? []) as SceneRevision[]}
+      worldElements={(worldElements ?? []) as WorldElement[]}
       backHref={`/chapters/${chapter.id}`}
       BackLink={
         <Link
