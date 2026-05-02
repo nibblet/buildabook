@@ -85,6 +85,16 @@ export function SceneFocusClient({
   const [goal, setGoal] = useState(scene.goal ?? "");
   const [conflict, setConflict] = useState(scene.conflict ?? "");
   const [outcome, setOutcome] = useState(scene.outcome ?? "");
+  const [sceneCardOpen, setSceneCardOpen] = useState(() =>
+    scenePlanningIncomplete(scene.goal ?? "", scene.conflict ?? "", scene.outcome ?? ""),
+  );
+  const [mentionsPanelOpen, setMentionsPanelOpen] = useState(() => {
+    const ids = idsMatchingMentionsInText(
+      stripHtml(scene.content ?? "").toLowerCase(),
+      characters,
+    );
+    return ids.length === 0;
+  });
   const [wordcount, setWordcount] = useState(scene.wordcount ?? 0);
   const [contentHtml, setContentHtml] = useState(scene.content ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -121,6 +131,7 @@ export function SceneFocusClient({
     stripHtml(contentHtml ?? "").toLowerCase(),
     characters,
   );
+  const mentionsEmpty = mentionedCharacterIds.length === 0;
   /** Full project cast — arc rows are optional notes per scene (not seeded). */
   const trackedCharacters = [...characters].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -150,6 +161,16 @@ export function SceneFocusClient({
   useEffect(() => {
     lastPersistedFpRef.current = prosePlainFingerprint(scene.content ?? "");
   }, [scene.id, scene.content]);
+
+  useEffect(() => {
+    setSceneCardOpen(
+      scenePlanningIncomplete(scene.goal ?? "", scene.conflict ?? "", scene.outcome ?? ""),
+    );
+  }, [scene.id]);
+
+  useEffect(() => {
+    setMentionsPanelOpen(mentionsEmpty);
+  }, [mentionsEmpty]);
 
   // Debounced autosave on prose change.
   useEffect(() => {
@@ -358,9 +379,10 @@ export function SceneFocusClient({
           />
 
           <details
-            key={`scene-card-${scene.id}-${scenePlanningIncomplete(goal, conflict, outcome) ? "open" : "done"}`}
+            key={`scene-card-${scene.id}`}
             className="mb-6 rounded-md border p-3 text-sm"
-            defaultOpen={scenePlanningIncomplete(goal, conflict, outcome)}
+            open={sceneCardOpen}
+            onToggle={(e) => setSceneCardOpen(e.currentTarget.open)}
           >
             <summary className="label-eyebrow cursor-pointer select-none">
               Scene card — goal · conflict · outcome
@@ -434,9 +456,10 @@ export function SceneFocusClient({
           />
 
           <details
-            key={`mentions-${scene.id}-${mentionedCharacterIds.length === 0 ? "empty" : "has"}`}
+            key={`mentions-${scene.id}`}
             className="mt-6 rounded-md border p-3 text-sm"
-            defaultOpen={mentionedCharacterIds.length === 0}
+            open={mentionsPanelOpen}
+            onToggle={(e) => setMentionsPanelOpen(e.currentTarget.open)}
           >
             <summary className="label-eyebrow cursor-pointer select-none">
               Character mentions — insert and track

@@ -16,7 +16,9 @@ export type PersonaKey =
   | "compile_index"
   | "reflect_session"
   | "reflect_chapter"
-  | "reflect_story_so_far";
+  | "reflect_story_so_far"
+  | "reflect_flow_spine"
+  | "reflect_flow_window";
 
 export type Project = {
   id: string;

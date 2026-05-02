@@ -5,6 +5,7 @@ import { loadSpine } from "@/lib/spine";
 import { StructureTabs } from "@/components/structure-tabs";
 import { NewChapterButton } from "@/components/new-chapter-button";
 import type { Character } from "@/lib/supabase/types";
+import { OutlineFlowReview } from "./outline-flow-review";
 import { OutlineTree } from "./outline-tree";
 
 export default async function OutlinePage() {
@@ -42,6 +43,8 @@ export default async function OutlinePage() {
           <NewChapterButton projectId={project.id} variant="outline" />
         </div>
       </header>
+
+      <OutlineFlowReview hasOutlineContent={spine.scenes.length > 0} />
 
       <OutlineTree
         spine={spine}

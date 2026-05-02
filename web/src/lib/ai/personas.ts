@@ -17,6 +17,8 @@ export type CorePersonaKey = Exclude<
   | "reflect_session"
   | "reflect_chapter"
   | "reflect_story_so_far"
+  | "reflect_flow_spine"
+  | "reflect_flow_window"
 >;
 
 export type PersonaConfig = {
@@ -108,6 +110,8 @@ export function personaLabel(
   const alias = aliases?.[key];
   if (alias && alias.trim()) return alias;
   if (key === "continuity_editor") return "Continuity Editor";
+  if (key === "reflect_flow_spine") return "Outline flow review";
+  if (key === "reflect_flow_window") return "Chapter flow review";
   if (key === "extract" || key === "factcheck") return key;
   const wp = parseWritingProfile(writingProfileRaw);
   const personas = getPersonas(wp);

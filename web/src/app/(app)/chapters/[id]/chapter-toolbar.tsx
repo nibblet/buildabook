@@ -13,6 +13,16 @@ import {
   runChapterDebriefAction,
   runChapterFactCheckAction,
 } from "../actions";
+import { runChapterFlowWindowAction } from "@/app/(app)/flow-actions";
+import type { ChapterFlowWindow } from "@/lib/ai/chapter-flow-window";
+import type { FlowWindowMode } from "@/lib/ai/flow-outline-serialize";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DeleteChapterButton } from "./delete-chapter-button";
 
 const STORAGE_EXPANDED = "bab:chapter-review-expanded";
@@ -34,6 +44,11 @@ export function ChapterChapterToolbar({
     Array.isArray(initialWarnings) ? initialWarnings : [],
   );
   const [debrief, setDebrief] = useState<ChapterDebrief | null>(null);
+  const [flowResult, setFlowResult] = useState<ChapterFlowWindow | null>(null);
+  const [flowError, setFlowError] = useState<string | null>(null);
+  const [flowMode, setFlowMode] =
+    useState<FlowWindowMode>("chapter_with_neighbors");
+  const [isFlowChecking, setIsFlowChecking] = useState(false);
   const [isFactChecking, setIsFactChecking] = useState(false);
   const [isDebriefing, setIsDebriefing] = useState(false);
   /** True after a continuity run completed with zero warnings (session-local until refresh). */
@@ -48,6 +63,11 @@ export function ChapterChapterToolbar({
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    setFlowResult(null);
+    setFlowError(null);
+  }, [chapterId]);
 
   function setExpandedPersist(next: boolean) {
     setExpanded(next);
@@ -88,6 +108,22 @@ export function ChapterChapterToolbar({
     }
   }
 
+  async function runFlowCheck() {
+    if (isFlowChecking) return;
+    setIsFlowChecking(true);
+    setFlowError(null);
+    try {
+      const res = await runChapterFlowWindowAction(chapterId, {
+        mode: flowMode,
+      });
+      if (res.ok && res.result) setFlowResult(res.result);
+      else setFlowError(res.error ?? "Flow check failed.");
+      router.refresh();
+    } finally {
+      setIsFlowChecking(false);
+    }
+  }
+
   const collapsedHint =
     warnings.length > 0
       ? `${warnings.length} continuity note${warnings.length === 1 ? "" : "s"}`
@@ -123,6 +159,45 @@ export function ChapterChapterToolbar({
       </CardHeader>
       {expanded && (
         <CardContent className="space-y-4 pt-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <Select
+              value={flowMode}
+              onValueChange={(v) =>
+                setFlowMode(v as FlowWindowMode)
+              }
+            >
+              <SelectTrigger className="w-full sm:w-[260px]">
+                <SelectValue placeholder="Flow window" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="chapter">Flow: this chapter only</SelectItem>
+                <SelectItem value="chapter_with_neighbors">
+                  Flow: chapter + neighbor scenes
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={runFlowCheck}
+              disabled={isFlowChecking || sceneCount === 0}
+            >
+              {isFlowChecking ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Running flow check…
+                </>
+              ) : (
+                "Flow check"
+              )}
+            </Button>
+          </div>
+          {flowError && (
+            <p className="text-sm text-destructive">{flowError}</p>
+          )}
+
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <div className="flex min-h-[2.25rem]">
               <Button
@@ -212,6 +287,53 @@ export function ChapterChapterToolbar({
                 </li>
               ))}
             </ul>
+          )}
+
+          {flowResult && (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Flow check (scene cards)
+              </p>
+              <p className="mt-1 font-medium text-foreground">
+                {flowResult.summary}
+              </p>
+              {flowResult.local_concerns.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    Local sequence
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                    {flowResult.local_concerns.map((c, idx) => (
+                      <li key={`fl-${idx}`}>{c.note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {flowResult.boundary_notes.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                    Boundaries
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                    {flowResult.boundary_notes.map((note, idx) => (
+                      <li key={`bn-${idx}`}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {flowResult.reorder_hypotheses.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    Reorder / bridges
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                    {flowResult.reorder_hypotheses.map((r, idx) => (
+                      <li key={`rh-${idx}`}>{r.note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
 
           {debrief && (
