@@ -5,9 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { formatNumber } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { AddSceneButton } from "./add-scene-button";
 import { BulkAddScenesButton } from "./bulk-add-scenes-button";
-import { DeleteChapterButton } from "./delete-chapter-button";
 import { ChapterChapterToolbar } from "./chapter-toolbar";
 import { ChapterScenesSortable } from "./chapter-scenes-sortable";
 import { ChapterTitleInline } from "@/components/chapter-title-inline";
@@ -102,12 +102,12 @@ export default async function ChapterPage({
           </div>
           <Link
             href={`/manuscript?chapter=${chapter.id}`}
-            className="shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline"
+            className="shrink-0 text-sm font-semibold text-amber-800 underline-offset-4 hover:text-amber-950 hover:underline dark:text-amber-200 dark:hover:text-amber-100"
           >
             Read this chapter
           </Link>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <Badge variant="muted">Status: {chapter.status}</Badge>
           <span>·</span>
           <span className="tabular-nums">
@@ -115,13 +115,19 @@ export default async function ChapterPage({
           </span>
           {chapterBeats.length > 0 && (
             <>
-              <span>·</span>
-              <span>Beats:</span>
-              {chapterBeats.map((b) => (
-                <Badge key={b.id} variant="secondary">
-                  {b.title}
-                </Badge>
-              ))}
+              <span className="hidden sm:inline">·</span>
+              <span className="shrink-0">Beats:</span>
+              <div className="flex max-w-full min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                {chapterBeats.map((b) => (
+                  <Badge
+                    key={b.id}
+                    variant="secondary"
+                    className="shrink-0 whitespace-nowrap"
+                  >
+                    {b.title}
+                  </Badge>
+                ))}
+              </div>
             </>
           )}
         </div>
@@ -129,6 +135,8 @@ export default async function ChapterPage({
 
       <ChapterChapterToolbar
         chapterId={chapter.id}
+        chapterTitle={chapter.title}
+        sceneCount={((scenes ?? []) as Scene[]).length}
         initialWarnings={initialWarnings}
       />
 
@@ -137,20 +145,12 @@ export default async function ChapterPage({
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Scenes
           </h2>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/import"
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              Import
-            </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/import">Import</Link>
+            </Button>
             <BulkAddScenesButton chapterId={chapter.id} />
             <AddSceneButton chapterId={chapter.id} />
-            <DeleteChapterButton
-              chapterId={chapter.id}
-              chapterTitle={chapter.title}
-              sceneCount={((scenes ?? []) as Scene[]).length}
-            />
           </div>
         </div>
 

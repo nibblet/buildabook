@@ -72,7 +72,7 @@ export function SceneBlueprintSection({
   }
 
   return (
-    <details className="mb-6 rounded-md border p-3 text-sm" open={hasContent}>
+    <details className="mb-6 rounded-md border p-3 text-sm" open={!hasContent}>
       <summary className="label-eyebrow flex cursor-pointer select-none items-center gap-2">
         Scene blueprint — pre-write intent
         {hasContent && (

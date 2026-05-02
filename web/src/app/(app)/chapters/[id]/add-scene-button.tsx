@@ -12,7 +12,7 @@ export function AddSceneButton({ chapterId }: { chapterId: string }) {
   return (
     <Button
       size="sm"
-      variant="outline"
+      variant="default"
       className="gap-1"
       disabled={pending}
       onClick={() =>

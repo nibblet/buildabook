@@ -6,6 +6,12 @@ import { Check, Loader2, ChevronLeft, Maximize2, Minimize2, RotateCcw, Sparkles 
 import { useRouter } from "next/navigation";
 import { useFocusMode } from "@/hooks/use-focus-mode";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -41,6 +47,10 @@ import type {
 } from "@/lib/supabase/types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+function scenePlanningIncomplete(goal: string, conflict: string, outcome: string) {
+  return !(goal.trim() && conflict.trim() && outcome.trim());
+}
 
 export function SceneFocusClient({
   project,
@@ -247,32 +257,54 @@ export function SceneFocusClient({
       )}
     >
       <div className="flex min-h-0 flex-col border-b md:border-b-0 md:border-r">
-        <div className="flex items-center justify-between border-b px-4 py-2">
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {!focusMode && (BackLink ?? (
-              <Link
-                href={`/chapters/${chapter.id}`}
-                className="inline-flex items-center gap-1 hover:text-foreground"
-              >
-                <ChevronLeft className="h-3 w-3" /> {chapter.title || "Chapter"}
-              </Link>
-            ))}
-            {sceneBeats.length > 0 && (
-              <span>
-                · Beat:{" "}
-                <span className="text-foreground">
-                  {sceneBeats.map((b) => b.title).join(" · ")}
+        <div className="flex flex-col gap-3 border-b px-4 py-3 md:flex-row md:items-start md:justify-between md:gap-6 md:py-2">
+          <div className="flex min-w-0 flex-col gap-2 text-xs text-muted-foreground md:flex-row md:flex-wrap md:items-center md:gap-x-6 md:gap-y-2">
+            {!focusMode && (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                {BackLink ?? (
+                  <Link
+                    href={`/chapters/${chapter.id}`}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                  >
+                    <ChevronLeft className="h-3 w-3" /> Back to chapter
+                  </Link>
+                )}
+                <span className="hidden text-muted-foreground/80 sm:inline" aria-hidden>
+                  ·
                 </span>
-              </span>
+                <span
+                  className="hidden max-w-[min(18rem,70vw)] truncate sm:inline"
+                  title={chapter.title ?? undefined}
+                >
+                  <span className="text-muted-foreground">{chapter.title?.trim() || "Untitled chapter"}</span>
+                  <span className="text-muted-foreground/80"> › </span>
+                  <span className="font-medium text-foreground">Scene</span>
+                </span>
+              </div>
             )}
-            {povCharacter && (
-              <span>
-                · POV:{" "}
-                <span className="text-foreground">{povCharacter.name}</span>
-              </span>
+            {(sceneBeats.length > 0 || povCharacter) && (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:border-l md:border-border md:pl-6">
+                {sceneBeats.length > 0 && (
+                  <span>
+                    Beat:{" "}
+                    <span className="text-foreground">
+                      {sceneBeats.map((b) => b.title).join(" · ")}
+                    </span>
+                  </span>
+                )}
+                {povCharacter && (
+                  <span>
+                    {sceneBeats.length > 0 && (
+                      <span className="text-muted-foreground"> · </span>
+                    )}
+                    POV:{" "}
+                    <span className="text-foreground">{povCharacter.name}</span>
+                  </span>
+                )}
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 text-xs text-muted-foreground md:justify-end">
             <span className="tabular-nums">
               {formatNumber(wordcount)} {wordcount === 1 ? "word" : "words"}
             </span>
@@ -313,7 +345,7 @@ export function SceneFocusClient({
               metaDirtyRef.current = true;
             }}
             placeholder="Scene title (optional)"
-            className="mb-6 h-auto border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
+            className="mb-6 h-auto border-0 bg-transparent px-0 font-serif text-2xl font-semibold leading-snug tracking-tight shadow-none focus-visible:ring-0"
           />
 
           <BeatPicker
@@ -325,7 +357,11 @@ export function SceneFocusClient({
             }}
           />
 
-          <details className="mb-6 rounded-md border p-3 text-sm">
+          <details
+            key={`scene-card-${scene.id}-${scenePlanningIncomplete(goal, conflict, outcome) ? "open" : "done"}`}
+            className="mb-6 rounded-md border p-3 text-sm"
+            defaultOpen={scenePlanningIncomplete(goal, conflict, outcome)}
+          >
             <summary className="label-eyebrow cursor-pointer select-none">
               Scene card — goal · conflict · outcome
             </summary>
@@ -397,7 +433,11 @@ export function SceneFocusClient({
             onChange={onProseChange}
           />
 
-          <details className="mt-6 rounded-md border p-3 text-sm">
+          <details
+            key={`mentions-${scene.id}-${mentionedCharacterIds.length === 0 ? "empty" : "has"}`}
+            className="mt-6 rounded-md border p-3 text-sm"
+            defaultOpen={mentionedCharacterIds.length === 0}
+          >
             <summary className="label-eyebrow cursor-pointer select-none">
               Character mentions — insert and track
             </summary>
@@ -541,8 +581,19 @@ export function SceneFocusClient({
       </div>
 
       {!focusMode && (
-        <aside className="min-h-0 overflow-y-auto border-t bg-card/60 p-4 backdrop-blur-sm md:border-t-0">
-          <TeamPanel
+        <>
+          <aside className="hidden min-h-0 overflow-y-auto border-l bg-card/60 p-4 backdrop-blur-sm md:block">
+            <TeamPanel
+              writingProfile={writingProfile}
+              sceneId={scene.id}
+              chapterId={chapter.id}
+              aliases={project.persona_aliases}
+              onInsertProse={(text) => {
+                editorRef.current?.insertAtCursor(text, { previewInsert: true });
+              }}
+            />
+          </aside>
+          <MobileTeamSheet
             writingProfile={writingProfile}
             sceneId={scene.id}
             chapterId={chapter.id}
@@ -551,7 +602,7 @@ export function SceneFocusClient({
               editorRef.current?.insertAtCursor(text, { previewInsert: true });
             }}
           />
-        </aside>
+        </>
       )}
 
       {/* Floating team reopener in focus mode */}
@@ -567,6 +618,55 @@ export function SceneFocusClient({
         />
       )}
     </div>
+  );
+}
+
+function MobileTeamSheet({
+  writingProfile,
+  sceneId,
+  chapterId,
+  aliases,
+  onInsertProse,
+}: {
+  writingProfile: WritingProfileId;
+  sceneId: string;
+  chapterId: string;
+  aliases: Project["persona_aliases"];
+  onInsertProse: (text: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className={cn(
+            "fixed inset-x-0 bottom-0 left-0 right-0 top-auto z-50 flex max-h-[min(92vh,720px)] w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none rounded-t-2xl border-x-0 border-t bg-background p-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-0 shadow-xl",
+          )}
+        >
+          <DialogHeader className="border-b px-4 py-3 text-left">
+            <DialogTitle className="text-base">Your team</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
+            <TeamPanel
+              writingProfile={writingProfile}
+              sceneId={sceneId}
+              chapterId={chapterId}
+              aliases={aliases}
+              onInsertProse={onInsertProse}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed bottom-4 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-lg transition-colors hover:bg-accent hover:text-foreground md:hidden"
+        aria-label="Open writing team"
+      >
+        <Sparkles className="h-5 w-5" />
+      </button>
+    </>
   );
 }
 

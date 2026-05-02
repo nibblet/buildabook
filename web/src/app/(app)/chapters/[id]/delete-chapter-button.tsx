@@ -4,16 +4,19 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { deleteChapter } from "../actions";
 
 export function DeleteChapterButton({
   chapterId,
   chapterTitle,
   sceneCount,
+  className,
 }: {
   chapterId: string;
   chapterTitle: string | null;
   sceneCount: number;
+  className?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -49,7 +52,10 @@ export function DeleteChapterButton({
       type="button"
       size="sm"
       variant="outline"
-      className="gap-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+      className={cn(
+        "gap-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive",
+        className,
+      )}
       disabled={pending}
       onClick={onDelete}
     >

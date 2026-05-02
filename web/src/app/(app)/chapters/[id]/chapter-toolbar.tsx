@@ -2,38 +2,74 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { ChapterDebrief } from "@/lib/ai/chapter-debrief";
 import type { FactCheckWarning } from "@/lib/supabase/types";
 import {
   runChapterDebriefAction,
   runChapterFactCheckAction,
 } from "../actions";
+import { DeleteChapterButton } from "./delete-chapter-button";
+
+const STORAGE_EXPANDED = "bab:chapter-review-expanded";
 
 export function ChapterChapterToolbar({
   chapterId,
+  chapterTitle,
+  sceneCount,
   initialWarnings,
 }: {
   chapterId: string;
+  chapterTitle: string | null;
+  sceneCount: number;
   initialWarnings: FactCheckWarning[] | null | undefined;
 }) {
   const router = useRouter();
+  const [expanded, setExpanded] = useState(true);
   const [warnings, setWarnings] = useState<FactCheckWarning[]>(
     Array.isArray(initialWarnings) ? initialWarnings : [],
   );
   const [debrief, setDebrief] = useState<ChapterDebrief | null>(null);
   const [isFactChecking, setIsFactChecking] = useState(false);
   const [isDebriefing, setIsDebriefing] = useState(false);
+  /** True after a continuity run completed with zero warnings (session-local until refresh). */
+  const [continuityCleanRun, setContinuityCleanRun] = useState(false);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(STORAGE_EXPANDED);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate outline prefs after SSR (matches NovelSpine pattern)
+      if (v === "0") setExpanded(false);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function setExpandedPersist(next: boolean) {
+    setExpanded(next);
+    try {
+      localStorage.setItem(STORAGE_EXPANDED, next ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }
 
   async function factCheck() {
     if (isFactChecking) return;
     setIsFactChecking(true);
     try {
       const res = await runChapterFactCheckAction(chapterId);
-      if (res.ok && res.warnings) setWarnings(res.warnings);
+      if (res.ok) {
+        const next = res.warnings ?? [];
+        setWarnings(next);
+        setContinuityCleanRun(next.length === 0);
+      } else {
+        setContinuityCleanRun(false);
+      }
       router.refresh();
     } finally {
       setIsFactChecking(false);
@@ -52,103 +88,165 @@ export function ChapterChapterToolbar({
     }
   }
 
+  const collapsedHint =
+    warnings.length > 0
+      ? `${warnings.length} continuity note${warnings.length === 1 ? "" : "s"}`
+      : debrief
+        ? "Debrief on file — expand to read"
+        : "Codex, continuity, debrief — chapter-level actions";
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-sm text-muted-foreground">
-          Chapter review (Phase 2)
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="secondary" asChild>
-            <Link href={`/chapters/${chapterId}/codex-review`}>
-              Review codex
-            </Link>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={factCheck}
-            disabled={isFactChecking}
-          >
-            {isFactChecking ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Running continuity check...
-              </>
-            ) : (
-              "Run continuity check"
-            )}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={runDebrief}
-            disabled={isDebriefing}
-          >
-            {isDebriefing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Running debrief...
-              </>
-            ) : (
-              "Chapter debrief"
-            )}
-          </Button>
-        </div>
-
-        {warnings.length > 0 && (
-          <ul className="space-y-2 text-sm">
-            {warnings.map((w, i) => (
-              <li
-                key={i}
-                className={
-                  w.severity === "warn"
-                    ? "rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/30"
-                    : "rounded-md border bg-muted/40 px-3 py-2"
-                }
-              >
-                {w.message}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {debrief && (
-          <div className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed">
-            <p className="font-medium text-foreground">{debrief.summary}</p>
-
-            {debrief.goingWell.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                  What&apos;s going well
-                </p>
-                <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
-                  {debrief.goingWell.map((item, idx) => (
-                    <li key={`good-${idx}`}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {debrief.couldBeImproved.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                  What could be improved
-                </p>
-                <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
-                  {debrief.couldBeImproved.map((item, idx) => (
-                    <li key={`improve-${idx}`}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+      <CardHeader className="pb-2">
+        <button
+          type="button"
+          className="flex w-full items-start gap-3 rounded-md text-left outline-none ring-offset-background transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-expanded={expanded}
+          onClick={() => setExpandedPersist(!expanded)}
+        >
+          <div className="min-w-0 flex-1 space-y-1">
+            <CardTitle className="text-sm text-muted-foreground">
+              Chapter review (Phase 2)
+            </CardTitle>
+            {!expanded && (
+              <p className="text-xs text-muted-foreground">{collapsedHint}</p>
             )}
           </div>
-        )}
-      </CardContent>
+          <ChevronDown
+            className={cn(
+              "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              expanded && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </button>
+      </CardHeader>
+      {expanded && (
+        <CardContent className="space-y-4 pt-0">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="flex min-h-[2.25rem]">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="w-full"
+                asChild
+              >
+                <Link href={`/chapters/${chapterId}/codex-review`}>
+                  Review codex
+                </Link>
+              </Button>
+            </div>
+            <div className="flex min-h-[2.25rem]">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="w-full"
+                onClick={factCheck}
+                disabled={isFactChecking}
+              >
+                {isFactChecking ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Running continuity check...
+                  </>
+                ) : (
+                  "Run continuity check"
+                )}
+              </Button>
+            </div>
+            <div className="flex min-h-[2.25rem]">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={runDebrief}
+                disabled={isDebriefing}
+              >
+                {isDebriefing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Running debrief...
+                  </>
+                ) : (
+                  "Chapter debrief"
+                )}
+              </Button>
+            </div>
+            <div className="flex min-h-[2.25rem]">
+              <DeleteChapterButton
+                chapterId={chapterId}
+                chapterTitle={chapterTitle}
+                sceneCount={sceneCount}
+                className="w-full border-destructive/40"
+              />
+            </div>
+          </div>
+
+          {warnings.length === 0 && continuityCleanRun && (
+            <p className="rounded-md border border-emerald-200/80 bg-emerald-50/70 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+              No continuity issues detected.
+            </p>
+          )}
+
+          {warnings.length === 0 && !continuityCleanRun && (
+            <p className="text-xs text-muted-foreground">
+              Run continuity check to compare this chapter&apos;s scenes against your codex and cast.
+            </p>
+          )}
+
+          {warnings.length > 0 && (
+            <ul className="space-y-2 text-sm">
+              {warnings.map((w, i) => (
+                <li
+                  key={i}
+                  className={
+                    w.severity === "warn"
+                      ? "rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/30"
+                      : "rounded-md border bg-muted/40 px-3 py-2"
+                  }
+                >
+                  {w.message}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {debrief && (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed">
+              <p className="font-medium text-foreground">{debrief.summary}</p>
+
+              {debrief.goingWell.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    What&apos;s going well
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                    {debrief.goingWell.map((item, idx) => (
+                      <li key={`good-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {debrief.couldBeImproved.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    What could be improved
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                    {debrief.couldBeImproved.map((item, idx) => (
+                      <li key={`improve-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

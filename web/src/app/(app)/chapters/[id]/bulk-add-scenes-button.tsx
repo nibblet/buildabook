@@ -59,7 +59,7 @@ export function BulkAddScenesButton({ chapterId }: { chapterId: string }) {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1">
+        <Button size="sm" variant="ghost" className="gap-1">
           <ListPlus className="h-3 w-3" /> Add scenes in bulk
         </Button>
       </DialogTrigger>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -18,9 +18,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowRight, Loader2, Trash2, GripVertical } from "lucide-react";
+import { ArrowRight, Check, Loader2, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Beat, Character, Scene } from "@/lib/supabase/types";
@@ -157,6 +164,17 @@ function SortableSceneCard({
   const [conflict, setConflict] = useState(scene.conflict ?? "");
   const [outcome, setOutcome] = useState(scene.outcome ?? "");
   const [isSavingMeta, startSavingMeta] = useTransition();
+  const [metaSavedFlash, setMetaSavedFlash] = useState(false);
+  const prevSavingMeta = useRef(false);
+
+  useEffect(() => {
+    if (prevSavingMeta.current && !isSavingMeta) {
+      setMetaSavedFlash(true);
+      const t = window.setTimeout(() => setMetaSavedFlash(false), 2000);
+      return () => window.clearTimeout(t);
+    }
+    prevSavingMeta.current = isSavingMeta;
+  }, [isSavingMeta]);
 
   function saveMetaField(
     field: "goal" | "conflict" | "outcome",
@@ -263,6 +281,7 @@ function SortableSceneCard({
             isDeleting={isDeleting}
             onDeleteScene={onDeleteScene}
             isSavingMeta={isSavingMeta}
+            metaSavedFlash={metaSavedFlash}
           />
         </CardContent>
       </Card>
@@ -308,6 +327,7 @@ function SceneActionBar({
   isDeleting,
   onDeleteScene,
   isSavingMeta,
+  metaSavedFlash,
 }: {
   sceneId: string;
   currentChapterId: string;
@@ -315,6 +335,7 @@ function SceneActionBar({
   isDeleting: boolean;
   onDeleteScene: () => void;
   isSavingMeta: boolean;
+  metaSavedFlash: boolean;
 }) {
   const router = useRouter();
   const [target, setTarget] = useState(otherChapters[0]?.id ?? "");
@@ -333,17 +354,18 @@ function SceneActionBar({
       <div className="flex items-center gap-2">
         {otherChapters.length > 0 && (
           <>
-            <select
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              className="h-8 max-w-[11rem] rounded-md border border-input bg-background px-2 text-xs"
-            >
-              {otherChapters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title?.trim() || `Chapter ${(c.order_index ?? 0) + 1}`}
-                </option>
-              ))}
-            </select>
+            <Select value={target} onValueChange={setTarget}>
+              <SelectTrigger size="sm" className="h-8 max-w-[11rem] text-xs">
+                <SelectValue placeholder="Move to chapter" />
+              </SelectTrigger>
+              <SelectContent>
+                {otherChapters.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.title?.trim() || `Chapter ${(c.order_index ?? 0) + 1}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               type="button"
               size="sm"
@@ -360,6 +382,12 @@ function SceneActionBar({
       <div className="flex items-center gap-2">
         {isSavingMeta && (
           <span className="text-[11px] text-muted-foreground">Saving...</span>
+        )}
+        {metaSavedFlash && !isSavingMeta && (
+          <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+            <Check className="h-3 w-3" aria-hidden />
+            Saved
+          </span>
         )}
         <Button
           type="button"
@@ -382,7 +410,7 @@ function SceneActionBar({
           )}
         </Button>
         <Link href={`/scenes/${sceneId}`}>
-          <Button size="sm" variant="secondary" className="h-8 gap-1">
+          <Button size="sm" variant="default" className="h-8 gap-1">
             Open <ArrowRight className="h-3 w-3" />
           </Button>
         </Link>

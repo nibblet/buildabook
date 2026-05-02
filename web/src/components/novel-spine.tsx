@@ -105,8 +105,9 @@ function LinearView({ spine }: { spine: SpineData }) {
                       <Link
                         href={`/chapters/${c.id}`}
                         className={cn(
-                          "flex min-w-0 flex-1 items-center gap-1 rounded px-2 py-1 text-xs font-medium hover:bg-accent",
-                          chapActive && "bg-accent",
+                          "flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-accent",
+                          chapActive &&
+                            "bg-secondary font-medium text-foreground shadow-sm ring-1 ring-primary/15",
                         )}
                       >
                         <span className="truncate">
@@ -131,9 +132,9 @@ function LinearView({ spine }: { spine: SpineData }) {
                               <Link
                                 href={`/scenes/${s.id}`}
                                 className={cn(
-                                  "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground",
+                                  "flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground",
                                   sceneActive &&
-                                    "bg-accent text-foreground font-medium",
+                                    "bg-secondary font-medium text-foreground shadow-sm ring-1 ring-primary/15",
                                 )}
                               >
                                 <span className="h-1 w-1 shrink-0 rounded-full bg-current opacity-40" />
@@ -191,7 +192,8 @@ function BeatView({ spine }: { spine: SpineData }) {
                     href={`/beats/${b.id}`}
                     className={cn(
                       "group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent",
-                      active && "bg-accent",
+                      active &&
+                        "bg-secondary font-medium text-foreground shadow-sm ring-1 ring-primary/15",
                     )}
                   >
                     <CoverageDot coverage={b.coverage} />
@@ -210,8 +212,9 @@ function BeatView({ spine }: { spine: SpineData }) {
                               <Link
                                 href={`/chapters/${c.id}`}
                                 className={cn(
-                                  "flex min-w-0 flex-1 items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-accent",
-                                  chapActive && "bg-accent",
+                                  "flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-xs hover:bg-accent",
+                                  chapActive &&
+                                    "bg-secondary font-medium text-foreground shadow-sm ring-1 ring-primary/15",
                                 )}
                               >
                                 <span className="truncate text-muted-foreground">
@@ -237,8 +240,9 @@ function BeatView({ spine }: { spine: SpineData }) {
                                       <Link
                                         href={`/scenes/${s.id}`}
                                         className={cn(
-                                          "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground",
-                                          sceneActive && "bg-accent text-foreground font-medium",
+                                          "flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground",
+                                          sceneActive &&
+                                            "bg-secondary font-medium text-foreground shadow-sm ring-1 ring-primary/15",
                                         )}
                                       >
                                         <span className="h-1 w-1 shrink-0 rounded-full bg-current opacity-40" />

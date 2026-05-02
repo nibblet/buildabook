@@ -379,7 +379,7 @@ export async function ensureRelationshipAndMergeClaimsAction(input: {
     return {
       ok: true,
       count: input.claimIds.length,
-      relationshipId,
+      relationshipId: relationshipId ?? undefined,
       created,
     };
   } catch (e) {
