@@ -121,3 +121,33 @@ export function resolveSubject(
 
   return unresolved();
 }
+
+/**
+ * Resolves a label to an existing character for deduplication (e.g. before
+ * inserting a new row on entity_introduction). Uses the same name, alias, and
+ * first-token heuristics as {@link resolveSubject}, but when there is exactly
+ * one first-name match, returns that id so "Zoe" does not create a second row
+ * when "Zoe Hurstborne" already exists.
+ */
+export function findExistingCharacterIdForLabel(
+  subjectLabel: string,
+  characters: EntityRow[],
+): string | null {
+  const n = norm(subjectLabel);
+  if (!n) return null;
+
+  const chMatch = characters.find((c) => norm(c.name) === n);
+  if (chMatch) return chMatch.id;
+
+  const chAlias = characters.find((c) =>
+    (c.aliases ?? []).some((a) => norm(a) === n),
+  );
+  if (chAlias) return chAlias.id;
+
+  const characterCandidates = characters.filter(
+    (c) => firstToken(c.name) === n,
+  );
+  if (characterCandidates.length === 1) return characterCandidates[0].id;
+
+  return null;
+}

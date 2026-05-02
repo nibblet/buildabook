@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getOrCreateProject, isOnboarded } from "@/lib/projects";
-import { loadSpine } from "@/lib/spine";
-import { getManuscriptChapters } from "@/lib/manuscript";
+import { loadManuscriptExportData } from "@/lib/export/manuscript-payload";
 import {
   ManuscriptReaderClient,
   type ManuscriptChapterPayload,
@@ -24,14 +23,16 @@ export default async function ManuscriptPage({
       ? chapterParam.trim()
       : null;
 
-  const spine = await loadSpine(project.id);
-  const manuscriptChapters = getManuscriptChapters(spine, chapterFilter);
+  const { chapters: exportChapters } = await loadManuscriptExportData(
+    project.id,
+    chapterFilter,
+  );
 
-  if (chapterFilter && manuscriptChapters.length === 0) {
+  if (chapterFilter && exportChapters.length === 0) {
     redirect("/manuscript");
   }
 
-  const payload: ManuscriptChapterPayload[] = manuscriptChapters.map((c) => ({
+  const payload: ManuscriptChapterPayload[] = exportChapters.map((c) => ({
     chapter: {
       id: c.id,
       title: c.title,
@@ -46,17 +47,22 @@ export default async function ManuscriptPage({
     })),
   }));
 
-  const totalWords = manuscriptChapters.reduce(
+  const totalWords = exportChapters.reduce(
     (sum, ch) =>
       sum + ch.scenes.reduce((s, sc) => s + (sc.wordcount ?? 0), 0),
     0,
   );
 
+  const activeChapter =
+    chapterFilter && payload.length === 1 ? payload[0]!.chapter : null;
+
   return (
     <ManuscriptReaderClient
+      projectTitle={project.title}
       chapters={payload}
       totalWords={totalWords}
       singleChapterMode={Boolean(chapterFilter)}
+      activeChapter={activeChapter}
     />
   );
 }

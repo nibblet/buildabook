@@ -7,6 +7,7 @@ import { getOrCreateProject } from "@/lib/projects";
 import { formatNumber } from "@/lib/utils";
 import { AddSceneButton } from "./add-scene-button";
 import { BulkAddScenesButton } from "./bulk-add-scenes-button";
+import { DeleteChapterButton } from "./delete-chapter-button";
 import { ChapterChapterToolbar } from "./chapter-toolbar";
 import { ChapterScenesSortable } from "./chapter-scenes-sortable";
 import { ChapterTitleInline } from "@/components/chapter-title-inline";
@@ -145,6 +146,11 @@ export default async function ChapterPage({
             </Link>
             <BulkAddScenesButton chapterId={chapter.id} />
             <AddSceneButton chapterId={chapter.id} />
+            <DeleteChapterButton
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+              sceneCount={((scenes ?? []) as Scene[]).length}
+            />
           </div>
         </div>
 

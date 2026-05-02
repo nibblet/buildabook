@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveSubject } from "./resolve-subject";
+import {
+  findExistingCharacterIdForLabel,
+  resolveSubject,
+} from "./resolve-subject";
 
 describe("resolveSubject", () => {
   const chars = [
@@ -71,5 +74,26 @@ describe("resolveSubject", () => {
       resolution_note: null,
       candidates: [],
     });
+  });
+});
+
+describe("findExistingCharacterIdForLabel", () => {
+  const chars = [
+    { id: "c1", name: "Zoe Hurstborne", aliases: [] as string[] | null },
+    { id: "c2", name: "Wyatt Cole", aliases: ["Wy"] },
+    { id: "c3", name: "Ava Larent", aliases: [] as string[] | null },
+    { id: "c4", name: "Ava Morgan", aliases: [] as string[] | null },
+  ];
+
+  it("matches first name when exactly one character shares that first token", () => {
+    expect(findExistingCharacterIdForLabel("Zoe", chars)).toBe("c1");
+  });
+
+  it("matches alias", () => {
+    expect(findExistingCharacterIdForLabel("Wy", chars)).toBe("c2");
+  });
+
+  it("returns null when multiple characters share the first token", () => {
+    expect(findExistingCharacterIdForLabel("Ava", chars)).toBeNull();
   });
 });

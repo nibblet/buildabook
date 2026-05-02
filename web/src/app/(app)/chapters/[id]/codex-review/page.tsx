@@ -24,9 +24,13 @@ export default async function CodexReviewPage({
 
   const { data: scenes } = await supabase
     .from("scenes")
-    .select("id, title, order_index")
+    .select("id, title, order_index, wordcount")
     .eq("chapter_id", chapterId)
     .order("order_index");
+
+  const proseSceneCount = (scenes ?? []).filter(
+    (s) => (s.wordcount ?? 0) > 0,
+  ).length;
 
   const sceneIds = (scenes ?? []).map((s) => s.id);
   let claims: ContinuityClaim[] = [];
@@ -64,6 +68,7 @@ export default async function CodexReviewPage({
         chapterId={chapterId}
         chapterTitle={chapter.title}
         claims={claims}
+        proseSceneCount={proseSceneCount}
         scenes={(scenes ?? []) as { id: string; title: string | null; order_index: number | null }[]}
         characters={(characters ?? []) as {
           id: string;

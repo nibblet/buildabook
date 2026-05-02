@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import {
   acceptHighConfidenceClaimsChapterAction,
   buildCharacterFromClaimsAction,
+  buildWorldFromClaimsAction,
   confirmClaimIdsAction,
   rejectAllAutoClaimsChapterAction,
   rejectClaimIdsAction,
+  rerunChapterContinuityExtractionAction,
   resolveClaimsToCharacterAction,
+  ensureRelationshipAndMergeClaimsAction,
   resolveClaimsToRelationshipAction,
   resolveClaimsToWorldElementAction,
 } from "@/app/(app)/chapters/[id]/codex-actions";
@@ -36,6 +39,7 @@ export function CodexReviewClient({
   chapterId,
   chapterTitle,
   claims,
+  proseSceneCount,
   scenes,
   characters,
   worlds,
@@ -44,6 +48,8 @@ export function CodexReviewClient({
   chapterId: string;
   chapterTitle: string | null;
   claims: ContinuityClaim[];
+  /** Scenes in this chapter with wordcount &gt; 0 */
+  proseSceneCount: number;
   scenes: SceneMin[];
   characters: DestinationOption[];
   worlds: DestinationOption[];
@@ -60,9 +66,14 @@ export function CodexReviewClient({
   const [targetCharacterId, setTargetCharacterId] = useState("");
   const [targetWorldId, setTargetWorldId] = useState("");
   const [targetRelationshipId, setTargetRelationshipId] = useState("");
+  const [pairCharAId, setPairCharAId] = useState("");
+  const [pairCharBId, setPairCharBId] = useState("");
+  const [pairRelType, setPairRelType] = useState("");
   const [newCharacterName, setNewCharacterName] = useState("");
+  const [newWorldName, setNewWorldName] = useState("");
   const [aliasText, setAliasText] = useState("");
   const [worldCategory, setWorldCategory] = useState("");
+  const [canonFocus, setCanonFocus] = useState(true);
 
   const sceneById = useMemo(() => {
     const m = new Map<string, SceneMin>();
@@ -76,9 +87,17 @@ export function CodexReviewClient({
         const confidenceMatch =
           confidenceFilter === "all" ? true : c.confidence === confidenceFilter;
         const eventMatch = showEventClaims ? true : c.kind !== "event";
-        return confidenceMatch && eventMatch;
+        const canonMatch =
+          !canonFocus ||
+          (c.confidence !== "low" && c.kind !== "event");
+        return confidenceMatch && eventMatch && canonMatch;
       }),
-    [claims, confidenceFilter, showEventClaims],
+    [claims, confidenceFilter, showEventClaims, canonFocus],
+  );
+
+  const hiddenByFiltersCount = useMemo(
+    () => Math.max(0, claims.length - visibleClaims.length),
+    [claims.length, visibleClaims.length],
   );
 
   const characterById = useMemo(() => {
@@ -251,7 +270,7 @@ export function CodexReviewClient({
       if (res.ok) {
         setSelectedIds(new Set());
         setAliasText("");
-        setMsg(`Resolved ${res.count ?? 0} claim(s) to character.`);
+        setMsg(`Merged and promoted ${res.count ?? 0} fact(s) to character.`);
         router.refresh();
       } else {
         setMsg(res.error ?? "Failed.");
@@ -275,7 +294,7 @@ export function CodexReviewClient({
         setSelectedIds(new Set());
         setAliasText("");
         setWorldCategory("");
-        setMsg(`Resolved ${res.count ?? 0} claim(s) to world entry.`);
+        setMsg(`Merged and promoted ${res.count ?? 0} fact(s) to world entry.`);
         router.refresh();
       } else {
         setMsg(res.error ?? "Failed.");
@@ -295,7 +314,32 @@ export function CodexReviewClient({
       });
       if (res.ok) {
         setSelectedIds(new Set());
-        setMsg(`Resolved ${res.count ?? 0} claim(s) to relationship.`);
+        setMsg(`Merged and promoted ${res.count ?? 0} fact(s) to relationship.`);
+        router.refresh();
+      } else {
+        setMsg(res.error ?? "Failed.");
+      }
+    });
+  }
+
+  function createPairAndMergeSelected() {
+    const ids = [...selectedIds];
+    if (!ids.length || !pairCharAId || !pairCharBId) return;
+    setMsg(null);
+    start(async () => {
+      const res = await ensureRelationshipAndMergeClaimsAction({
+        chapterId,
+        claimIds: ids,
+        charAId: pairCharAId,
+        charBId: pairCharBId,
+        type: pairRelType.trim() || null,
+      });
+      if (res.ok) {
+        setSelectedIds(new Set());
+        const note = res.created
+          ? "Created relationship and promoted"
+          : "Merged into existing relationship and promoted";
+        setMsg(`${note} ${res.count ?? 0} fact(s).`);
         router.refresh();
       } else {
         setMsg(res.error ?? "Failed.");
@@ -316,7 +360,43 @@ export function CodexReviewClient({
       if (res.ok) {
         setSelectedIds(new Set());
         setNewCharacterName("");
-        setMsg(`Built character from ${res.count ?? 0} claim(s).`);
+        setMsg(`Created character and promoted ${res.count ?? 0} fact(s) to bible.`);
+        router.refresh();
+      } else {
+        setMsg(res.error ?? "Failed.");
+      }
+    });
+  }
+
+  function rerunExtraction() {
+    setMsg(null);
+    start(async () => {
+      const res = await rerunChapterContinuityExtractionAction(chapterId);
+      if (res.ok) {
+        setMsg(`Re-ran extraction on ${res.scenesProcessed ?? 0} scene(s).`);
+        router.refresh();
+      } else {
+        setMsg(res.error ?? "Failed.");
+      }
+    });
+  }
+
+  function buildWorldFromSelected() {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setMsg(null);
+    start(async () => {
+      const res = await buildWorldFromClaimsAction({
+        chapterId,
+        claimIds: ids,
+        name: newWorldName.trim() || null,
+        category: worldCategory.trim() || null,
+      });
+      if (res.ok) {
+        setSelectedIds(new Set());
+        setNewWorldName("");
+        setWorldCategory("");
+        setMsg(`Created world entry and promoted ${res.count ?? 0} fact(s) to bible.`);
         router.refresh();
       } else {
         setMsg(res.error ?? "Failed.");
@@ -406,10 +486,24 @@ export function CodexReviewClient({
         <Button
           type="button"
           size="sm"
+          variant={canonFocus ? "default" : "outline"}
+          onClick={() => setCanonFocus((v) => !v)}
+        >
+          {canonFocus ? "Canon focus" : "Show all kinds"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
           variant={showEventClaims ? "default" : "outline"}
           onClick={() => setShowEventClaims((v) => !v)}
+          disabled={canonFocus}
+          title={
+            canonFocus
+              ? "Turn off Canon focus to toggle events separately"
+              : undefined
+          }
         >
-          {showEventClaims ? "Showing events" : "Hide event noise"}
+          {showEventClaims ? "Showing events" : "Hide events"}
         </Button>
         <Button
           type="button"
@@ -437,7 +531,13 @@ export function CodexReviewClient({
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-        <span>{visibleClaims.length} visible</span>
+        <span>
+          {visibleClaims.length} visible
+          {hiddenByFiltersCount > 0
+            ? ` (${hiddenByFiltersCount} hidden by filters)`
+            : ""}
+          {canonFocus ? " — canon focus hides low confidence & events" : ""}
+        </span>
         <span>•</span>
         <span>{counts.high} high</span>
         <span>•</span>
@@ -464,6 +564,21 @@ export function CodexReviewClient({
             disabled={pending || !selectedIds.size}
           >
             Build character from selected
+          </Button>
+
+          <input
+            value={newWorldName}
+            onChange={(e) => setNewWorldName(e.target.value)}
+            placeholder="New world entry name (optional)"
+            className="rounded-md border bg-background px-2 py-2 text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={buildWorldFromSelected}
+            disabled={pending || !selectedIds.size}
+          >
+            Build world entry from selected
           </Button>
 
           <select
@@ -508,12 +623,77 @@ export function CodexReviewClient({
             Merge into world
           </Button>
 
+          <p className="text-muted-foreground md:col-span-2 text-xs leading-relaxed">
+            Relationship facts (e.g. Zoe / K.C.) need a{" "}
+            <strong>relationship row</strong>. The list below is empty until you
+            add pairs under{" "}
+            <Link href="/relationships" className="underline underline-offset-2">
+              Relationships
+            </Link>
+            — or pick two characters here to create (or reuse) a pair and merge.
+          </p>
+
+          <select
+            value={pairCharAId}
+            onChange={(e) => setPairCharAId(e.target.value)}
+            className="rounded-md border bg-background px-2 py-2 text-sm"
+            aria-label="First character in pair"
+          >
+            <option value="">Character A…</option>
+            {characters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={pairCharBId}
+            onChange={(e) => setPairCharBId(e.target.value)}
+            className="rounded-md border bg-background px-2 py-2 text-sm"
+            aria-label="Second character in pair"
+          >
+            <option value="">Character B…</option>
+            {characters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={pairRelType}
+            onChange={(e) => setPairRelType(e.target.value)}
+            placeholder="Optional type (romantic, ally, family…)"
+            className="rounded-md border bg-background px-2 py-2 text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={createPairAndMergeSelected}
+            disabled={
+              pending ||
+              !selectedIds.size ||
+              !pairCharAId ||
+              !pairCharBId ||
+              pairCharAId === pairCharBId
+            }
+          >
+            Create pair & merge selected
+          </Button>
+
+          <p className="text-muted-foreground md:col-span-2 text-xs font-medium">
+            Existing relationship
+          </p>
+
           <select
             value={targetRelationshipId}
             onChange={(e) => setTargetRelationshipId(e.target.value)}
             className="rounded-md border bg-background px-2 py-2 text-sm"
           >
-            <option value="">Choose relationship...</option>
+            <option value="">
+              {relationships.length
+                ? "Choose relationship…"
+                : "No saved pairs yet — use two dropdowns above"}
+            </option>
             {relationships.map((r) => (
               <option key={r.id} value={r.id}>
                 {relationshipLabel(r)}
@@ -547,53 +727,100 @@ export function CodexReviewClient({
       </div>
 
       <div className="space-y-8">
-        {grouped.length === 0 ? (
+        {claims.length > 0 && visibleClaims.length === 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            {claims.length} fact{claims.length === 1 ? "" : "s"} loaded but none
+            match the current view. Turn off <strong>Canon focus</strong>, set
+            confidence to <strong>All</strong>, or choose Show all kinds.
+          </div>
+        ) : null}
+
+        {grouped.length === 0 && claims.length === 0 && proseSceneCount === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing pending. Write more scenes - facts appear here after each save.
+            Nothing pending yet. Add prose to a scene in this chapter and save —
+            facts show up here after each save.
           </p>
-        ) : (
-          grouped.map(([subject, rows]) => (
-            <section key={subject}>
-              <h2 className="mb-3 text-sm font-semibold">{subject}</h2>
-              <ul className="space-y-2 text-sm">
-                {rows.map((c) => {
-                  const sc = sceneById.get(c.source_scene_id);
-                  return (
-                    <li key={c.id}>
-                      <label className="flex gap-3 rounded-md border bg-card px-3 py-2 leading-relaxed">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(c.id)}
-                          onChange={() => toggleClaim(c.id)}
-                          className="mt-1"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <Badge variant={confidenceVariant(c.confidence)}>
-                              {c.confidence}
-                            </Badge>
-                            <Badge variant="outline">{c.kind}</Badge>
-                            <Badge variant="outline">{destinationText(c)}</Badge>
+        ) : null}
+
+        {grouped.length === 0 &&
+        claims.length === 0 &&
+        proseSceneCount > 0 ? (
+          <div className="space-y-3 rounded-md border bg-muted/30 px-3 py-3 text-sm">
+            <p className="text-muted-foreground">
+              No unconfirmed facts for this chapter. That usually means extraction
+              has not run successfully yet, or every claim was already promoted or
+              rejected.
+            </p>
+            <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+              <li>
+                Open a scene, make a small edit, and save — or use Re-run below.
+              </li>
+              <li>
+                Continuity extraction needs your AI key (Anthropic or xAI per
+                writing profile) and{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  CONTINUITY_EDITOR_ENABLED
+                </code>{" "}
+                not set to{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">false</code>
+                .
+              </li>
+            </ul>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={rerunExtraction}
+            >
+              Re-run extraction for this chapter
+            </Button>
+          </div>
+        ) : null}
+
+        {grouped.length > 0
+          ? grouped.map(([subject, rows]) => (
+              <section key={subject}>
+                <h2 className="mb-3 text-sm font-semibold">{subject}</h2>
+                <ul className="space-y-2 text-sm">
+                  {rows.map((c) => {
+                    const sc = sceneById.get(c.source_scene_id);
+                    return (
+                      <li key={c.id}>
+                        <label className="flex gap-3 rounded-md border bg-card px-3 py-2 leading-relaxed">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(c.id)}
+                            onChange={() => toggleClaim(c.id)}
+                            className="mt-1"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <Badge variant={confidenceVariant(c.confidence)}>
+                                {c.confidence}
+                              </Badge>
+                              <Badge variant="outline">{c.kind}</Badge>
+                              <Badge variant="outline">{destinationText(c)}</Badge>
+                            </span>
+                            <span className="mt-2 block">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {c.predicate}
+                              </span>{" "}
+                              → {c.object_text}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              scene {(sc?.order_index ?? 0) + 1}
+                              {sc?.title ? ` · ${sc.title}` : ""}
+                            </span>
                           </span>
-                          <span className="mt-2 block">
-                            <span className="font-mono text-xs text-muted-foreground">
-                              {c.predicate}
-                            </span>{" "}
-                            → {c.object_text}
-                          </span>
-                          <span className="block text-xs text-muted-foreground">
-                            scene {(sc?.order_index ?? 0) + 1}
-                            {sc?.title ? ` · ${sc.title}` : ""}
-                          </span>
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))
-        )}
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))
+          : null}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Circle, CircleDot, CircleCheck } from "lucide-react";
+import { Circle, CircleDot, CircleCheck, ScrollText } from "lucide-react";
 import type { SpineData, SpineChapter } from "@/lib/spine";
 import { cn } from "@/lib/utils";
 
@@ -101,17 +101,27 @@ function LinearView({ spine }: { spine: SpineData }) {
                 const chapActive = pathname === `/chapters/${c.id}`;
                 return (
                   <li key={c.id}>
-                    <Link
-                      href={`/chapters/${c.id}`}
-                      className={cn(
-                        "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium hover:bg-accent",
-                        chapActive && "bg-accent",
-                      )}
-                    >
-                      <span className="truncate">
-                        {c.title || `Chapter ${(c.order_index ?? 0) + 1}`}
-                      </span>
-                    </Link>
+                    <div className="flex items-center gap-0.5">
+                      <Link
+                        href={`/chapters/${c.id}`}
+                        className={cn(
+                          "flex min-w-0 flex-1 items-center gap-1 rounded px-2 py-1 text-xs font-medium hover:bg-accent",
+                          chapActive && "bg-accent",
+                        )}
+                      >
+                        <span className="truncate">
+                          {c.title || `Chapter ${(c.order_index ?? 0) + 1}`}
+                        </span>
+                      </Link>
+                      <Link
+                        href={`/manuscript?chapter=${c.id}`}
+                        title="Manuscript"
+                        aria-label="Read chapter in manuscript"
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <ScrollText className="h-3 w-3" />
+                      </Link>
+                    </div>
                     {c.scenes.length > 0 && (
                       <ul className="ml-3 mt-0.5 space-y-0.5 border-l pl-2">
                         {c.scenes.map((s, idx) => {
@@ -196,17 +206,27 @@ function BeatView({ spine }: { spine: SpineData }) {
                         const chapActive = pathname === `/chapters/${c.id}`;
                         return (
                           <li key={c.id}>
-                            <Link
-                              href={`/chapters/${c.id}`}
-                              className={cn(
-                                "flex items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-accent",
-                                chapActive && "bg-accent",
-                              )}
-                            >
-                              <span className="truncate text-muted-foreground">
-                                {c.title || `Chapter ${c.order_index ?? "—"}`}
-                              </span>
-                            </Link>
+                            <div className="flex items-center gap-0.5">
+                              <Link
+                                href={`/chapters/${c.id}`}
+                                className={cn(
+                                  "flex min-w-0 flex-1 items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-accent",
+                                  chapActive && "bg-accent",
+                                )}
+                              >
+                                <span className="truncate text-muted-foreground">
+                                  {c.title || `Chapter ${c.order_index ?? "—"}`}
+                                </span>
+                              </Link>
+                              <Link
+                                href={`/manuscript?chapter=${c.id}`}
+                                title="Manuscript"
+                                aria-label="Read chapter in manuscript"
+                                className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                              >
+                                <ScrollText className="h-3 w-3" />
+                              </Link>
+                            </div>
 
                             {c.scenes.length > 0 && (
                               <ul className="ml-3 space-y-0.5">

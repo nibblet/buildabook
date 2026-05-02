@@ -5,7 +5,9 @@ import Link from "next/link";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import { useFocusMode } from "@/hooks/use-focus-mode";
 import { Button } from "@/components/ui/button";
+import { ManuscriptExportControls } from "@/components/manuscript-export-controls";
 import { cn, formatNumber } from "@/lib/utils";
+import { chapterHeadingLabel, sceneHeadingLabel } from "@/lib/manuscript-labels";
 import type { Chapter, Scene } from "@/lib/supabase/types";
 
 export type ManuscriptChapterPayload = {
@@ -17,13 +19,17 @@ export type ManuscriptChapterPayload = {
 };
 
 export function ManuscriptReaderClient({
+  projectTitle,
   chapters,
   totalWords,
   singleChapterMode,
+  activeChapter,
 }: {
+  projectTitle: string;
   chapters: ManuscriptChapterPayload[];
   totalWords: number;
   singleChapterMode: boolean;
+  activeChapter: Pick<Chapter, "id" | "title" | "order_index"> | null;
 }) {
   const { enter, exit } = useFocusMode();
 
@@ -33,15 +39,20 @@ export function ManuscriptReaderClient({
   }, [enter, exit]);
 
   return (
-    <div className="focus-vignette relative min-h-screen bg-background">
-      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="manuscript-print-root focus-vignette relative min-h-screen bg-background">
+      <header className="print:hidden sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <Button variant="ghost" size="sm" className="gap-1.5" asChild>
           <Link href="/">
             <ArrowLeft className="h-4 w-4" />
             Dashboard
           </Link>
         </Button>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 md:gap-3">
+          <ManuscriptExportControls
+            projectTitle={projectTitle}
+            activeChapter={activeChapter}
+            singleChapterMode={singleChapterMode}
+          />
           <Button variant="outline" size="sm" asChild>
             <Link href="/import">Import</Link>
           </Button>
@@ -51,7 +62,7 @@ export function ManuscriptReaderClient({
         </div>
       </header>
 
-      <div className="mx-auto max-w-[40rem] px-6 py-10 pb-24 md:px-8">
+      <div className="manuscript-print-body mx-auto max-w-[40rem] px-6 py-10 pb-24 md:px-8">
         <p className="label-eyebrow mb-2 flex items-center gap-2">
           <BookOpen className="h-3.5 w-3.5" />
           {singleChapterMode ? "Chapter read-through" : "Manuscript"}
@@ -59,7 +70,7 @@ export function ManuscriptReaderClient({
 
         {chapters.length > 1 && (
           <nav
-            className="mb-10 flex flex-wrap gap-2 border-b border-border pb-6"
+            className="print:hidden mb-10 flex flex-wrap gap-2 border-b border-border pb-6"
             aria-label="Jump to chapter"
           >
             {chapters.map((row) => (
@@ -78,7 +89,7 @@ export function ManuscriptReaderClient({
           <section
             key={row.chapter.id}
             id={`ch-${row.chapter.id}`}
-            className="scroll-mt-24 pb-16 last:pb-8"
+            className="manuscript-print-chapter scroll-mt-24 pb-16 last:pb-8"
           >
             <h2
               className={cn(
@@ -93,14 +104,18 @@ export function ManuscriptReaderClient({
                 <article
                   key={scene.id}
                   id={`scene-${scene.id}`}
-                  className="scroll-mt-28"
+                  className="manuscript-print-scene scroll-mt-28"
                 >
                   <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                     <h3 className="font-serif text-lg font-medium text-foreground">
-                      {scene.title?.trim() ||
-                        `Scene ${(scene.order_index ?? sceneIdx) + 1}`}
+                      {sceneHeadingLabel(scene, sceneIdx)}
                     </h3>
-                    <Button variant="link" size="sm" className="h-auto shrink-0 p-0 text-xs" asChild>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="print:hidden h-auto shrink-0 p-0 text-xs"
+                      asChild
+                    >
                       <Link href={`/scenes/${scene.id}`}>Edit scene</Link>
                     </Button>
                   </div>
@@ -129,10 +144,4 @@ export function ManuscriptReaderClient({
       </div>
     </div>
   );
-}
-
-function chapterHeadingLabel(chapter: Pick<Chapter, "title" | "order_index">) {
-  return chapter.title?.trim()
-    ? chapter.title
-    : `Chapter ${(chapter.order_index ?? 0) + 1}`;
 }

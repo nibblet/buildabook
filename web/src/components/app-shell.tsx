@@ -75,7 +75,10 @@ export function AppShell({
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className="flex h-screen overflow-hidden" data-mode={mode}>
+    <div
+      className="app-shell-root flex h-screen overflow-hidden"
+      data-mode={mode}
+    >
       {showSpine && !focusMode && (
         <>
           <NavRail userEmail={userEmail} isAdmin={isAdmin} />
@@ -94,7 +97,7 @@ export function AppShell({
         </>
       )}
 
-      <div className="flex h-full min-w-0 flex-1 flex-col">
+        <div className="app-shell-main-column flex h-full min-w-0 flex-1 flex-col">
         {showSpine && !focusMode && (
           <header className="flex items-center gap-2 border-b bg-background/80 px-3 py-2 backdrop-blur md:hidden">
             <Button

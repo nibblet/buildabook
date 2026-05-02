@@ -28,7 +28,7 @@ import {
   type PriorClaimLite,
 } from "@/lib/ai/continuity/tiering";
 
-export const CONTINUITY_EXTRACTOR_VERSION = 1;
+export const CONTINUITY_EXTRACTOR_VERSION = 2;
 
 function htmlToPlainForParagraphs(html: string): string {
   return html
@@ -46,9 +46,11 @@ function continuityEditorSystemPrompt(): string {
 
 Rules:
 - Every claim must be directly supported by the numbered paragraphs. Prefer NO claim over a guess.
+- Be selective: emit fewer, higher-value claims. Skip filler, stage direction, and one-off gestures unless they encode lasting plot or relationship truth.
 - Self-report confidence: high if explicitly stated; medium if strongly implied; low if inferred from subtext.
-- Prioritize canon-worthy continuity facts (identity, relationship state, world rules, durable traits).
-- Transient choreography/body-position beats ("nods", "leans", "presses", "steps", etc.) are usually low-value continuity; prefer medium/low confidence unless they imply durable relationship or character change.
+- Prioritize canon-worthy continuity: identity, introductions, relationship state, world rules and magic, factions/locations, durable traits and obligations.
+- Use kind "event" sparingly — only for plot-significant beats worth tracking across chapters (reveals, binding choices, violence with lasting stakes). Omit routine blocking and micro-actions.
+- Transient choreography/body-position beats ("nods", "leans", "presses", "steps") are not continuity unless tied to a lasting emotional or plot consequence — omit them or use very low confidence.
 - Use subject_ref_hint ONLY when you mean an existing entity UUID from the ENTITY INDEX.
 - paragraph_start / paragraph_end are inclusive 0-based indices into the numbered paragraphs below.
 - Return ONLY valid JSON (one object, double-quoted keys, no markdown fences).`;
@@ -103,6 +105,23 @@ function normalizeClaimConfidence(
     return claim.confidence === "high" ? "medium" : claim.confidence;
   }
   return claim.confidence;
+}
+
+/** Drops low-signal claims before insert so Codex review stays bible-shaped. */
+export function shouldInsertContinuityClaim(
+  claim: ExtractedClaimRawT,
+): boolean {
+  if (claim.kind === "event") {
+    if (claim.confidence === "low") return false;
+    if (isLikelyTransientNoise(claim)) return false;
+    if (
+      (claim.subject_type === "unknown" || claim.subject_type === "scene") &&
+      claim.confidence !== "high"
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function buildUserPrompt(input: {
@@ -297,17 +316,6 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     });
   }
 
-  await supabase
-    .from("continuity_claims")
-    .update({
-      status: "superseded",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("source_scene_id", sceneId)
-    .eq("status", "auto");
-
-  await supabase.from("continuity_annotations").delete().eq("scene_id", sceneId);
-
   const wp = parseWritingProfile(project.writing_profile);
   const model = resolveModelFromProject(project.writing_profile, "quick");
 
@@ -327,19 +335,27 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     });
     extracted = ExtractedContinuityResponse.parse(parseJsonObject(text));
   } catch (e) {
+    // Do not update continuity_content_hash here — a successful extract must be
+    // the only path that marks the scene as extracted; otherwise the next save
+    // skips re-extraction forever while pending claims may already be gone.
     console.error("extractContinuity LLM:", e);
-    await supabase
-      .from("scenes")
-      .update({
-        continuity_content_hash: contentHash,
-        continuity_extracted_at: new Date().toISOString(),
-        continuity_extractor_version: CONTINUITY_EXTRACTOR_VERSION,
-      })
-      .eq("id", sceneId);
     return;
   }
 
-  const claimInserts = extracted.claims.map((c: ExtractedClaimRawT) => {
+  const claimsToStore = extracted.claims.filter(shouldInsertContinuityClaim);
+
+  await supabase
+    .from("continuity_claims")
+    .update({
+      status: "superseded",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("source_scene_id", sceneId)
+    .eq("status", "auto");
+
+  await supabase.from("continuity_annotations").delete().eq("scene_id", sceneId);
+
+  const claimInserts = claimsToStore.map((c: ExtractedClaimRawT) => {
     const resolved = resolveSubject(
       c.subject_label,
       c.subject_ref_hint,

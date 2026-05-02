@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContinuityClaim } from "@/lib/supabase/types";
+import {
+  findExistingCharacterIdForLabel,
+  type EntityRow,
+} from "@/lib/ai/continuity/resolve-subject";
 
 /** Append sentence to existing text field (newline-separated). */
 function appendField(
@@ -155,25 +159,50 @@ export function buildCanonPatchForClaim(
 export async function applyClaimToCanon(
   supabase: SupabaseClient,
   claim: ContinuityClaim,
+  projectCharacters: EntityRow[],
 ): Promise<void> {
   const projectId = claim.project_id;
   const obj = claim.object_text.trim();
 
   if (claim.kind === "entity_introduction" && claim.subject_type === "character") {
     const name = claim.subject_label.trim() || obj || "Unnamed";
-    const { data: dup } = await supabase
-      .from("characters")
-      .select("id")
-      .eq("project_id", projectId)
-      .ilike("name", name)
-      .maybeSingle();
-    if (dup) return;
+    const existingId = findExistingCharacterIdForLabel(name, projectCharacters);
+    if (existingId) {
+      if (obj) {
+        const { data: row } = await supabase
+          .from("characters")
+          .select("voice_notes")
+          .eq("id", existingId)
+          .maybeSingle();
+        await supabase
+          .from("characters")
+          .update({
+            voice_notes: appendField(
+              row?.voice_notes,
+              `Introduced in prose: ${obj}`,
+            ),
+          })
+          .eq("id", existingId);
+      }
+      return;
+    }
 
-    await supabase.from("characters").insert({
-      project_id: projectId,
-      name,
-      voice_notes: obj ? `Introduced in prose: ${obj}` : null,
-    });
+    const { data: inserted, error: insertErr } = await supabase
+      .from("characters")
+      .insert({
+        project_id: projectId,
+        name,
+        voice_notes: obj ? `Introduced in prose: ${obj}` : null,
+      })
+      .select("id, name")
+      .single();
+    if (!insertErr && inserted) {
+      projectCharacters.push({
+        id: inserted.id,
+        name: inserted.name,
+        aliases: [],
+      });
+    }
     return;
   }
 
@@ -238,10 +267,21 @@ export async function confirmClaims(
     .in("id", claimIds);
   if (!rows?.length) return;
 
+  const projectId = rows[0].project_id as string;
+  const { data: charRows } = await supabase
+    .from("characters")
+    .select("id, name, aliases")
+    .eq("project_id", projectId);
+  const projectCharacters: EntityRow[] = (charRows ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    aliases: c.aliases,
+  }));
+
   for (const raw of rows) {
     const claim = raw as ContinuityClaim;
     if (claim.status !== "auto") continue;
-    await applyClaimToCanon(supabase, claim);
+    await applyClaimToCanon(supabase, claim, projectCharacters);
     await supabase
       .from("continuity_claims")
       .update({ status: "confirmed", updated_at: new Date().toISOString() })

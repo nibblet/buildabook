@@ -31,7 +31,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber } from "@/lib/utils";
 import type { Character, Scene } from "@/lib/supabase/types";
@@ -735,6 +735,14 @@ function ChapterHeader({
         className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
       >
         {chapter.title ?? "Untitled chapter"}
+      </Link>
+      <Link
+        href={`/manuscript?chapter=${chapter.id}`}
+        title="Read chapter in manuscript"
+        aria-label="Read chapter in manuscript"
+        className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <ScrollText className="h-3.5 w-3.5" />
       </Link>
       {pov && (
         <Badge variant="muted" className="text-xs">

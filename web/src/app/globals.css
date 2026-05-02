@@ -273,3 +273,89 @@
   pointer-events: none;
   z-index: 0;
 }
+
+/* ─── Print / Save as PDF (manuscript) ───────────────────────────── */
+
+@media print {
+  @page {
+    margin: 0.65in;
+  }
+
+  /*
+    App shell uses flex + h-screen + min-h-0 + overflow-y-auto on <main>.
+    Browsers often compute a zero/clipped scroll region when printing, yielding a blank PDF.
+    Reset to normal block flow for print so manuscript content paints.
+  */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    print-color-adjust: exact;
+    color: var(--foreground);
+  }
+
+  .app-shell-root {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .app-shell-main-column {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .app-shell-root main {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: none !important;
+    max-height: none !important;
+  }
+
+  /* Focus vignette uses position:fixed; remove entirely for print */
+  .focus-vignette::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  [data-focus-mode="true"] .focus-vignette::before {
+    display: none !important;
+  }
+
+  .manuscript-print-root {
+    background: white !important;
+    position: relative !important;
+    z-index: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .manuscript-print-body {
+    max-width: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .manuscript-print-chapter:not(:first-of-type) {
+    break-before: page;
+  }
+
+  .manuscript-print-scene {
+    break-inside: avoid;
+  }
+
+  .prose-writing a {
+    color: inherit !important;
+    text-decoration: underline;
+  }
+
+  /* Radix dropdown content is portaled under <body>, outside print:hidden headers */
+  [role="menu"] {
+    display: none !important;
+  }
+}
