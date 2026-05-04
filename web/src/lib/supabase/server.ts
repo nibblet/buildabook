@@ -1,6 +1,30 @@
 import { createServerClient } from "@supabase/ssr";
+import type { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { env } from "@/lib/env";
+
+/**
+ * Route handlers that return a custom `NextResponse` (e.g. redirects) must bind
+ * Supabase cookie writes to that response. Using only `cookies()` from
+ * `next/headers` can omit `Set-Cookie` on the redirect response.
+ */
+export function supabaseRouteHandler(req: NextRequest, response: NextResponse) {
+  return createServerClient(env.supabaseUrl(), env.supabaseAnonKey(), {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll();
+      },
+      setAll(cookiesToSet, headers) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options ?? {});
+        });
+        Object.entries(headers ?? {}).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+      },
+    },
+  });
+}
 
 // Server-side Supabase client, bound to the current request cookies.
 // Use inside Server Components, Server Actions, and Route Handlers.

@@ -36,10 +36,12 @@ function LoginShell() {
 }
 
 function appBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    (typeof window !== "undefined" ? window.location.origin : "")
-  );
+  // In the browser, use the tab origin so magic-link / reset emails return to the
+  // same host (preview deploys, alternate domains). Env alone is the production URL.
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "";
 }
 
 function LoginInner() {

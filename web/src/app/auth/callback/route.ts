@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseRouteHandler } from "@/lib/supabase/server";
 import {
   AUTH_RETURN_COOKIE,
   AUTH_SET_PASSWORD_PATH,
@@ -22,26 +22,31 @@ export async function GET(req: NextRequest) {
       (typeParam === "recovery" ? AUTH_SET_PASSWORD_PATH : undefined),
   );
 
-  const supabase = await supabaseServer();
+  const target = new URL(nextPath, url.origin);
 
-  function redirectAfterAuth() {
-    const target = new URL(nextPath, url.origin);
-    const res = NextResponse.redirect(target);
-    res.cookies.set(AUTH_RETURN_COOKIE, "", {
+  if (code) {
+    const response = NextResponse.redirect(target);
+    response.cookies.set(AUTH_RETURN_COOKIE, "", {
       path: "/",
       maxAge: 0,
     });
-    return res;
-  }
-
-  if (code) {
+    const supabase = supabaseRouteHandler(req, response);
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return NextResponse.redirect(
         new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin),
       );
     }
-  } else if (tokenHash && type) {
+    return response;
+  }
+
+  if (tokenHash && type) {
+    const response = NextResponse.redirect(target);
+    response.cookies.set(AUTH_RETURN_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+    });
+    const supabase = supabaseRouteHandler(req, response);
     const { error } = await supabase.auth.verifyOtp({
       type: type as "email" | "magiclink" | "signup" | "recovery",
       token_hash: tokenHash,
@@ -51,9 +56,8 @@ export async function GET(req: NextRequest) {
         new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin),
       );
     }
-  } else {
-    return NextResponse.redirect(new URL("/login", url.origin));
+    return response;
   }
 
-  return redirectAfterAuth();
+  return NextResponse.redirect(new URL("/login", url.origin));
 }
