@@ -29,6 +29,8 @@ import {
   runInlineAssist,
   type InlineAssistMode,
 } from "@/lib/ai/inline-assist";
+import { paragraphRangeFromEditorPositions } from "@/lib/ai/continuity/paragraph-range";
+import { extractContinuityFromSelectionAction } from "@/app/(app)/scenes/[id]/continuity/actions";
 import { ContinuityGutter } from "@/components/continuity-gutter";
 import type { ContinuityDial } from "@/lib/ai/continuity/dial";
 import { WikiLink } from "@/lib/tiptap/wiki-link-node";
@@ -76,8 +78,11 @@ type Props = {
   chapterId?: string | null;
   enableInlineAssist?: boolean;
   enableContinuityGutter?: boolean;
+  /** When true, show "Extract continuity" on text selection (defaults to gutter flag). */
+  enableContinuityExtract?: boolean;
   continuityDial?: ContinuityDial;
   continuityRefreshKey?: number;
+  onContinuityExtracted?: (claimCount: number) => void;
   enableWikiLinks?: boolean;
   enableFindReplace?: boolean;
   /** Project characters — used for entity-aware rename in the find/replace panel. */
@@ -100,6 +105,8 @@ const INLINE_ACTIONS: { mode: InlineAssistMode; label: string }[] = [
   { mode: "change_pov", label: "Other POV" },
 ];
 
+const MIN_CONTINUITY_SELECTION_CHARS = 40;
+
 export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
   function ProseEditor(
     {
@@ -112,8 +119,10 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       chapterId,
       enableInlineAssist,
       enableContinuityGutter,
+      enableContinuityExtract,
       continuityDial,
       continuityRefreshKey,
+      onContinuityExtracted,
       enableWikiLinks,
       enableFindReplace,
       charactersForRename,
@@ -123,6 +132,8 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
     ref,
   ) {
     const [assistPending, startAssist] = useTransition();
+    const [extractPending, startExtract] = useTransition();
+    const [extractMessage, setExtractMessage] = useState<string | null>(null);
     const [customOpen, setCustomOpen] = useState(false);
     const [customInstruction, setCustomInstruction] = useState("");
     const [customError, setCustomError] = useState<string | null>(null);
@@ -241,6 +252,50 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
       const selectedText = editor.state.doc.textBetween(from, to, "\n");
       assistRangeRef.current = { from, to, selectedText };
       return true;
+    }
+
+    useEffect(() => {
+      if (!extractMessage) return;
+      const t = setTimeout(() => setExtractMessage(null), 8000);
+      return () => clearTimeout(t);
+    }, [extractMessage]);
+
+    function runExtractContinuity() {
+      if (!editor || !sceneId) return;
+      setAssistError(null);
+      setExtractMessage(null);
+      if (!captureAssistRange()) return;
+
+      const { from, to, selectedText } = assistRangeRef.current!;
+      if (selectedText.trim().length < MIN_CONTINUITY_SELECTION_CHARS) {
+        setAssistError(
+          `Select at least ${MIN_CONTINUITY_SELECTION_CHARS} characters to extract continuity.`,
+        );
+        return;
+      }
+
+      const range = paragraphRangeFromEditorPositions(editor.state.doc, from, to);
+      if (!range) {
+        setAssistError("Could not map selection to paragraphs.");
+        return;
+      }
+
+      startExtract(async () => {
+        const res = await extractContinuityFromSelectionAction(
+          sceneId,
+          range.start,
+          range.end,
+        );
+        if (!res.ok) {
+          setAssistError(res.error ?? "Continuity extraction failed.");
+          return;
+        }
+        const n = res.claimCount ?? 0;
+        setExtractMessage(
+          n === 1 ? "Extracted 1 claim from selection." : `Extracted ${n} claims from selection.`,
+        );
+        onContinuityExtracted?.(n);
+      });
     }
 
     function runAssist(mode: InlineAssistMode) {
@@ -480,7 +535,11 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
     }, [findOpen, editor]);
 
     const showBubble =
-      !!editor && !!enableInlineAssist && !!sceneId;
+      !!editor &&
+      !!sceneId &&
+      (!!enableInlineAssist || !!(enableContinuityExtract ?? enableContinuityGutter));
+
+    const bubbleBusy = assistPending || extractPending;
 
     const showContinuity =
       !!editor &&
@@ -615,6 +674,11 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
               </div>
             </div>
           ) : null}
+          {extractMessage ? (
+            <p className="mb-2 text-sm text-emerald-700 dark:text-emerald-300">
+              {extractMessage}
+            </p>
+          ) : null}
           {assistError ? (
             <p className="mb-2 text-sm text-destructive">{assistError}</p>
           ) : null}
@@ -638,34 +702,50 @@ export const ProseEditor = forwardRef<ProseEditorHandle, Props>(
               }
             >
               <div className="flex flex-wrap gap-1 rounded-md border bg-popover p-1 shadow-md">
-                {assistPending ? (
+                {bubbleBusy ? (
                   <span className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" /> Working…
                   </span>
                 ) : (
                   <>
-                    {INLINE_ACTIONS.map(({ mode, label }) => (
+                    {enableInlineAssist
+                      ? INLINE_ACTIONS.map(({ mode, label }) => (
+                          <Button
+                            key={mode}
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            onClick={() => runAssist(mode)}
+                          >
+                            {label}
+                          </Button>
+                        ))
+                      : null}
+                    {enableInlineAssist ? (
                       <Button
-                        key={mode}
                         type="button"
                         size="sm"
-                        variant="ghost"
+                        variant="secondary"
                         className="h-7 text-xs"
-                        onClick={() => runAssist(mode)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => openCustomAssist()}
                       >
-                        {label}
+                        Custom…
                       </Button>
-                    ))}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-xs"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => openCustomAssist()}
-                    >
-                      Custom…
-                    </Button>
+                    ) : null}
+                    {(enableContinuityExtract ?? enableContinuityGutter) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => runExtractContinuity()}
+                      >
+                        Extract continuity
+                      </Button>
+                    ) : null}
                   </>
                 )}
               </div>

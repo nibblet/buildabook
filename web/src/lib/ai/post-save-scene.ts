@@ -1,6 +1,4 @@
-import { extractContinuity } from "@/lib/ai/continuity/extract";
 import { logAiActivity } from "@/lib/ai/log";
-import { maybeProposeRelationshipBeat } from "@/lib/ai/relationship-beat-proposal";
 import {
   recountChapterCharacterMentions,
   recountChapterElementMentions,
@@ -18,8 +16,6 @@ export type PostSaveScenePipelineDeps = {
   loadChapterProjectId: (chapterId: string) => Promise<string | null>;
   recountCharacters: (chapterId: string) => Promise<void>;
   recountElements: (chapterId: string) => Promise<void>;
-  proposeRelationshipBeat: (sceneId: string) => Promise<void>;
-  extractContinuity: (sceneId: string) => Promise<void>;
   extractWikiLinks: (content: string) => WikiLinkNode[];
   logWikiLinks: (args: {
     projectId: string;
@@ -39,8 +35,6 @@ export function createPostSaveScenePipeline(deps: PostSaveScenePipelineDeps) {
 
     await deps.recountCharacters(chapterId);
     await deps.recountElements(chapterId);
-    await deps.proposeRelationshipBeat(sceneId);
-    await deps.extractContinuity(sceneId);
 
     const projectId = await deps.loadChapterProjectId(chapterId);
     if (projectId) {
@@ -95,8 +89,6 @@ const defaultPipeline = createPostSaveScenePipeline({
   },
   recountCharacters: recountChapterCharacterMentions,
   recountElements: recountChapterElementMentions,
-  proposeRelationshipBeat: maybeProposeRelationshipBeat,
-  extractContinuity,
   extractWikiLinks: extractWikiLinkNodes,
   logWikiLinks: async ({ projectId, sceneId, chapterId, nodes }) => {
     await logAiActivity({
@@ -117,6 +109,6 @@ export const runPostSaveScenePipeline =
 export const runPostImportScenePipeline =
   defaultPipeline.runPostImportScenePipeline;
 
-/** Non-blocking hooks after prose save (mentions, continuity, wiki compile). */
+/** Non-blocking hooks after prose save (mentions + wiki compile; no LLM). */
 export const firePostSaveScenePipeline =
   defaultPipeline.firePostSaveScenePipeline;

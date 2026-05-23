@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getOrCreateProject } from "@/lib/projects";
 import { SceneFocusClient } from "./scene-focus-client";
+import { CacheHydrator } from "@/components/offline/cache-hydrator";
 import type {
   Beat,
   Chapter,
@@ -61,7 +62,19 @@ export default async function SceneFocusPage({
   delete (sceneClean as { chapters?: unknown }).chapters;
 
   return (
-    <SceneFocusClient
+    <>
+      <CacheHydrator
+        payload={{
+          projects: [project],
+          scenes: [sceneClean],
+          chapters: [chapter],
+          characters: chars ?? [],
+          beats: beats ?? [],
+          scene_revisions: revisions ?? [],
+          world_elements: worldElements ?? [],
+        }}
+      />
+      <SceneFocusClient
       project={project as Project}
       scene={sceneClean as Scene}
       chapter={chapter as Pick<Chapter, "id" | "title">}
@@ -80,5 +93,6 @@ export default async function SceneFocusPage({
         </Link>
       }
     />
+    </>
   );
 }

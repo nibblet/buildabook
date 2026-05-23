@@ -369,7 +369,15 @@ export function CodexReviewClient({
   }
 
   function rerunExtraction() {
-    setMsg(null);
+    if (pending) return;
+    if (
+      !window.confirm(
+        `Re-run continuity extraction for every scene in this chapter with prose (${proseSceneCount} scene${proseSceneCount === 1 ? "" : "s"})? This uses one AI call per scene.`,
+      )
+    ) {
+      return;
+    }
+    setMsg("Running extraction…");
     start(async () => {
       const res = await rerunChapterContinuityExtractionAction(chapterId);
       if (res.ok) {
@@ -737,8 +745,8 @@ export function CodexReviewClient({
 
         {grouped.length === 0 && claims.length === 0 && proseSceneCount === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing pending yet. Add prose to a scene in this chapter and save —
-            facts show up here after each save.
+            Nothing pending yet. Add prose to a scene in this chapter, then use
+            Extract continuity in the scene editor.
           </p>
         ) : null}
 
@@ -753,7 +761,7 @@ export function CodexReviewClient({
             </p>
             <ul className="list-inside list-disc space-y-1 text-muted-foreground">
               <li>
-                Open a scene, make a small edit, and save — or use Re-run below.
+                Open a scene, highlight a passage, and choose Extract continuity — or use Re-run below for the whole chapter.
               </li>
               <li>
                 Continuity extraction needs your AI key (Anthropic or xAI per
@@ -773,7 +781,7 @@ export function CodexReviewClient({
               disabled={pending}
               onClick={rerunExtraction}
             >
-              Re-run extraction for this chapter
+              {pending ? "Running extraction…" : "Re-run extraction for this chapter"}
             </Button>
           </div>
         ) : null}

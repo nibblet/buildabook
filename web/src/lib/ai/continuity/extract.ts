@@ -1,3 +1,5 @@
+// On-demand continuity extraction — scoped to user-selected paragraph ranges or full scene (codex batch).
+
 import { createHash } from "node:crypto";
 import { env } from "@/lib/env";
 import { splitDraftIntoParagraphs } from "@/lib/ai/extract";
@@ -27,8 +29,26 @@ import {
   type ClaimForTiering,
   type PriorClaimLite,
 } from "@/lib/ai/continuity/tiering";
+import {
+  paragraphRangesOverlap,
+  validateParagraphRange,
+} from "@/lib/ai/continuity/paragraph-range";
 
 export const CONTINUITY_EXTRACTOR_VERSION = 2;
+
+export type ExtractContinuityOptions = {
+  paragraphStart: number;
+  paragraphEnd: number;
+  /** When true, update scenes.continuity_content_hash (full-scene codex rerun only). */
+  updateContentHash?: boolean;
+  /** When true, skip hash-based early exit (codex batch rerun). */
+  force?: boolean;
+};
+
+export type ExtractContinuityResult = {
+  claimCount: number;
+  annotationCount: number;
+};
 
 function htmlToPlainForParagraphs(html: string): string {
   return html
@@ -193,9 +213,16 @@ Return a single JSON object:
 If nothing is extractable, return {"claims":[],"contradictions":[],"new_entities":[]}.`;
 }
 
-/** Post-save pipeline: extract claims + annotations for one scene. */
-export async function extractContinuity(sceneId: string): Promise<void> {
-  if (!env.continuityEditorEnabled()) return;
+/** Extract claims + annotations for a paragraph range within one scene (on-demand). */
+export async function extractContinuityRange(
+  sceneId: string,
+  options: ExtractContinuityOptions,
+): Promise<ExtractContinuityResult> {
+  const empty: ExtractContinuityResult = { claimCount: 0, annotationCount: 0 };
+  if (!env.continuityEditorEnabled()) return empty;
+
+  const { paragraphStart, paragraphEnd, updateContentHash = false, force = false } =
+    options;
 
   const supabase = await supabaseServer();
 
@@ -206,63 +233,69 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     )
     .eq("id", sceneId)
     .maybeSingle();
-  if (scErr || !scene) return;
+  if (scErr || !scene) return empty;
 
   const { data: chapter } = await supabase
     .from("chapters")
     .select("id, project_id")
     .eq("id", scene.chapter_id)
     .maybeSingle();
-  if (!chapter) return;
+  if (!chapter) return empty;
 
   const { data: project } = await supabase
     .from("projects")
     .select("id, writing_profile")
     .eq("id", chapter.project_id)
     .maybeSingle();
-  if (!project) return;
+  if (!project) return empty;
 
   const html = scene.content ?? "";
   const plain = htmlToPlainForParagraphs(html);
-  const paragraphs = splitDraftIntoParagraphs(plain);
-  const normalizedBody = paragraphs.join("\n\n");
+  const allParagraphs = splitDraftIntoParagraphs(plain);
+  const normalizedBody = allParagraphs.join("\n\n");
   const contentHash = createHash("sha256")
     .update(normalizedBody)
     .digest("hex");
 
-  if (
-    paragraphs.length === 0 ||
-    !normalizedBody.trim()
-  ) {
-    await supabase
-      .from("scenes")
-      .update({
-        continuity_content_hash: contentHash,
-        continuity_extracted_at: new Date().toISOString(),
-        continuity_extractor_version: CONTINUITY_EXTRACTOR_VERSION,
-      })
-      .eq("id", sceneId);
-    return;
+  const rangeCheck = validateParagraphRange(
+    allParagraphs,
+    paragraphStart,
+    paragraphEnd,
+  );
+  if (!rangeCheck.ok) {
+    throw new Error(rangeCheck.error);
   }
 
+  const isFullScene =
+    paragraphStart === 0 && paragraphEnd === allParagraphs.length - 1;
+
   if (
+    isFullScene &&
+    !force &&
     scene.continuity_content_hash === contentHash &&
     (scene.continuity_extractor_version ?? 0) >= CONTINUITY_EXTRACTOR_VERSION
   ) {
-    return;
+    return empty;
   }
 
-  const [{ data: chars }, { data: worlds }, { data: relationships }] = await Promise.all([
-    supabase.from("characters").select("id, name, aliases").eq("project_id", chapter.project_id),
-    supabase
-      .from("world_elements")
-      .select("id, name, category, aliases")
-      .eq("project_id", chapter.project_id),
-    supabase
-      .from("relationships")
-      .select("id, char_a_id, char_b_id")
-      .eq("project_id", chapter.project_id),
-  ]);
+  const rangeParagraphs = allParagraphs.slice(paragraphStart, paragraphEnd + 1);
+  const paragraphOffset = paragraphStart;
+
+  const [{ data: chars }, { data: worlds }, { data: relationships }] =
+    await Promise.all([
+      supabase
+        .from("characters")
+        .select("id, name, aliases")
+        .eq("project_id", chapter.project_id),
+      supabase
+        .from("world_elements")
+        .select("id, name, category, aliases")
+        .eq("project_id", chapter.project_id),
+      supabase
+        .from("relationships")
+        .select("id, char_a_id, char_b_id")
+        .eq("project_id", chapter.project_id),
+    ]);
 
   const charRows = (chars ?? []) as Character[];
   const worldRows = (worlds ?? []) as WorldElement[];
@@ -324,7 +357,11 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     const { text } = await askModel({
       persona: "continuity_editor",
       system: continuityEditorSystemPrompt(),
-      user: buildUserPrompt({ paragraphs, priorClaimLines, entityIndexLines }),
+      user: buildUserPrompt({
+        paragraphs: rangeParagraphs,
+        priorClaimLines,
+        entityIndexLines,
+      }),
       model,
       temperature: 0.15,
       maxTokens: 8192,
@@ -335,27 +372,65 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     });
     extracted = ExtractedContinuityResponse.parse(parseJsonObject(text));
   } catch (e) {
-    // Do not update continuity_content_hash here — a successful extract must be
-    // the only path that marks the scene as extracted; otherwise the next save
-    // skips re-extraction forever while pending claims may already be gone.
     console.error("extractContinuity LLM:", e);
-    return;
+    throw e instanceof Error ? e : new Error("Continuity extraction failed.");
   }
 
   const claimsToStore = extracted.claims.filter(shouldInsertContinuityClaim);
 
-  await supabase
+  // Range-scoped merge: supersede overlapping auto claims only.
+  const { data: existingAutoClaims } = await supabase
     .from("continuity_claims")
-    .update({
-      status: "superseded",
-      updated_at: new Date().toISOString(),
-    })
+    .select("id, source_paragraph_start, source_paragraph_end")
     .eq("source_scene_id", sceneId)
     .eq("status", "auto");
 
-  await supabase.from("continuity_annotations").delete().eq("scene_id", sceneId);
+  const idsToSupersede = (existingAutoClaims ?? [])
+    .filter((row) => {
+      const cStart = row.source_paragraph_start ?? 0;
+      const cEnd = row.source_paragraph_end ?? cStart;
+      return paragraphRangesOverlap(
+        cStart,
+        cEnd,
+        paragraphStart,
+        paragraphEnd,
+      );
+    })
+    .map((row) => row.id);
+
+  if (idsToSupersede.length > 0) {
+    await supabase
+      .from("continuity_claims")
+      .update({
+        status: "superseded",
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", idsToSupersede);
+  }
+
+  const { data: existingAnnotations } = await supabase
+    .from("continuity_annotations")
+    .select("id, paragraph_index")
+    .eq("scene_id", sceneId);
+
+  const annotationIdsToDelete = (existingAnnotations ?? [])
+    .filter(
+      (a) =>
+        a.paragraph_index >= paragraphStart && a.paragraph_index <= paragraphEnd,
+    )
+    .map((a) => a.id);
+
+  if (annotationIdsToDelete.length > 0) {
+    await supabase
+      .from("continuity_annotations")
+      .delete()
+      .in("id", annotationIdsToDelete);
+  }
 
   const claimInserts = claimsToStore.map((c: ExtractedClaimRawT) => {
+    const globalStart = c.paragraph_start + paragraphOffset;
+    const globalEnd = c.paragraph_end + paragraphOffset;
+
     const resolved = resolveSubject(
       c.subject_label,
       c.subject_ref_hint,
@@ -368,13 +443,14 @@ export async function extractContinuity(sceneId: string): Promise<void> {
           .subject_character_id,
       )
       .filter((id): id is string => Boolean(id));
-    const relationship = c.subject_type === "relationship"
-      ? findRelationshipForPair(
-          relationshipRows,
-          relationshipCharacterIds[0] ?? null,
-          relationshipCharacterIds[1] ?? null,
-        )
-      : null;
+    const relationship =
+      c.subject_type === "relationship"
+        ? findRelationshipForPair(
+            relationshipRows,
+            relationshipCharacterIds[0] ?? null,
+            relationshipCharacterIds[1] ?? null,
+          )
+        : null;
     const proposedDestinationType =
       c.subject_type === "relationship"
         ? "relationship"
@@ -389,8 +465,8 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     return {
       project_id: chapter.project_id,
       source_scene_id: sceneId,
-      source_paragraph_start: c.paragraph_start,
-      source_paragraph_end: c.paragraph_end,
+      source_paragraph_start: globalStart,
+      source_paragraph_end: globalEnd,
       kind: c.kind,
       subject_type: c.subject_type,
       subject_label: c.subject_label,
@@ -402,9 +478,7 @@ export async function extractContinuity(sceneId: string): Promise<void> {
       resolution_status: relationship
         ? "resolved"
         : resolved.resolution_status,
-      resolution_note: relationship
-        ? null
-        : resolved.resolution_note,
+      resolution_note: relationship ? null : resolved.resolution_note,
       predicate: c.predicate,
       object_text: c.object_text,
       confidence: normalizeClaimConfidence(c),
@@ -461,7 +535,7 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     const nm = ne.name.trim();
     if (nameSet.has(nm.toLowerCase())) {
       duplicateNameParagraphs.push({
-        paragraph_index: ne.paragraph_start,
+        paragraph_index: ne.paragraph_start + paragraphOffset,
         name: nm,
       });
     }
@@ -472,12 +546,18 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     paragraph_index: number;
   }[] = [];
 
+  const contradictionsWithOffset = extracted.contradictions.map((c) => ({
+    ...c,
+    paragraph_start: c.paragraph_start + paragraphOffset,
+    paragraph_end: c.paragraph_end + paragraphOffset,
+  }));
+
   const d1 = computeAnnotationDrafts({
     duplicateNameParagraphs,
     newEntityNamesMatchingExisting,
   });
   const d2 = contradictionDraftsFromExtractor({
-    contradictions: extracted.contradictions,
+    contradictions: contradictionsWithOffset,
     priorById,
   });
   const d3 = tierBDraftsFromClaims(claimsForTiering);
@@ -505,12 +585,57 @@ export async function extractContinuity(sceneId: string): Promise<void> {
     if (anErr) console.error("continuity_annotations insert:", anErr);
   }
 
-  await supabase
+  if (updateContentHash && isFullScene) {
+    await supabase
+      .from("scenes")
+      .update({
+        continuity_content_hash: contentHash,
+        continuity_extracted_at: new Date().toISOString(),
+        continuity_extractor_version: CONTINUITY_EXTRACTOR_VERSION,
+      })
+      .eq("id", sceneId);
+  }
+
+  return {
+    claimCount: insertedClaimRows.length,
+    annotationCount: annRows.length,
+  };
+}
+
+/** Full-scene extraction (codex batch rerun). */
+export async function extractContinuity(sceneId: string): Promise<void> {
+  if (!env.continuityEditorEnabled()) return;
+
+  const supabase = await supabaseServer();
+  const { data: scene } = await supabase
     .from("scenes")
-    .update({
-      continuity_content_hash: contentHash,
-      continuity_extracted_at: new Date().toISOString(),
-      continuity_extractor_version: CONTINUITY_EXTRACTOR_VERSION,
-    })
-    .eq("id", sceneId);
+    .select("content")
+    .eq("id", sceneId)
+    .maybeSingle();
+  if (!scene) return;
+
+  const plain = htmlToPlainForParagraphs(scene.content ?? "");
+  const paragraphs = splitDraftIntoParagraphs(plain);
+
+  if (paragraphs.length === 0 || !paragraphs.some((p) => p.trim())) {
+    const contentHash = createHash("sha256")
+      .update(paragraphs.join("\n\n"))
+      .digest("hex");
+    await supabase
+      .from("scenes")
+      .update({
+        continuity_content_hash: contentHash,
+        continuity_extracted_at: new Date().toISOString(),
+        continuity_extractor_version: CONTINUITY_EXTRACTOR_VERSION,
+      })
+      .eq("id", sceneId);
+    return;
+  }
+
+  await extractContinuityRange(sceneId, {
+    paragraphStart: 0,
+    paragraphEnd: paragraphs.length - 1,
+    updateContentHash: true,
+    force: true,
+  });
 }

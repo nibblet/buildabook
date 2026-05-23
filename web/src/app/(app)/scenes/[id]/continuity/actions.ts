@@ -1,9 +1,122 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { extractContinuityRange } from "@/lib/ai/continuity/extract";
 import { confirmClaims } from "@/lib/ai/continuity/promote";
+import { validateParagraphRange } from "@/lib/ai/continuity/paragraph-range";
+import { splitDraftIntoParagraphs } from "@/lib/ai/extract";
+import { env } from "@/lib/env";
+import { getOrCreateProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { ContinuityAnnotation } from "@/lib/supabase/types";
+
+function htmlToPlainForParagraphs(html: string): string {
+  return html
+    .replace(/\r\n/g, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+async function assertSceneInProject(sceneId: string): Promise<
+  | { ok: true; content: string }
+  | { ok: false; error: string }
+> {
+  const project = await getOrCreateProject();
+  if (!project) return { ok: false, error: "No active project." };
+
+  const supabase = await supabaseServer();
+  const { data: scene } = await supabase
+    .from("scenes")
+    .select("id, content, chapters!inner(project_id)")
+    .eq("id", sceneId)
+    .maybeSingle();
+
+  if (!scene) return { ok: false, error: "Scene not found." };
+
+  const chapter = scene.chapters as unknown as { project_id: string };
+  if (chapter?.project_id !== project.id) {
+    return { ok: false, error: "Scene not found." };
+  }
+
+  return { ok: true, content: (scene.content as string) ?? "" };
+}
+
+export async function extractContinuityFromSelectionAction(
+  sceneId: string,
+  paragraphStart: number,
+  paragraphEnd: number,
+): Promise<{ ok: boolean; claimCount?: number; error?: string }> {
+  if (!env.continuityEditorEnabled()) {
+    return { ok: false, error: "Continuity extraction is disabled." };
+  }
+
+  const access = await assertSceneInProject(sceneId);
+  if (!access.ok) return { ok: false, error: access.error };
+
+  const paragraphs = splitDraftIntoParagraphs(
+    htmlToPlainForParagraphs(access.content),
+  );
+  const rangeCheck = validateParagraphRange(
+    paragraphs,
+    paragraphStart,
+    paragraphEnd,
+  );
+  if (!rangeCheck.ok) {
+    return { ok: false, error: rangeCheck.error };
+  }
+
+  try {
+    const result = await extractContinuityRange(sceneId, {
+      paragraphStart,
+      paragraphEnd,
+    });
+    revalidatePath(`/scenes/${sceneId}`);
+    return { ok: true, claimCount: result.claimCount };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Continuity extraction failed.",
+    };
+  }
+}
+
+export async function extractContinuityWholeSceneAction(
+  sceneId: string,
+): Promise<{ ok: boolean; claimCount?: number; error?: string }> {
+  if (!env.continuityEditorEnabled()) {
+    return { ok: false, error: "Continuity extraction is disabled." };
+  }
+
+  const access = await assertSceneInProject(sceneId);
+  if (!access.ok) return { ok: false, error: access.error };
+
+  const paragraphs = splitDraftIntoParagraphs(
+    htmlToPlainForParagraphs(access.content),
+  );
+  if (!paragraphs.some((p) => p.trim())) {
+    return { ok: false, error: "Scene has no prose to extract from." };
+  }
+
+  try {
+    const result = await extractContinuityRange(sceneId, {
+      paragraphStart: 0,
+      paragraphEnd: paragraphs.length - 1,
+      updateContentHash: true,
+      force: true,
+    });
+    revalidatePath(`/scenes/${sceneId}`);
+    return { ok: true, claimCount: result.claimCount };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Continuity extraction failed.",
+    };
+  }
+}
 
 export async function listAnnotationsForScene(sceneId: string): Promise<
   Pick<

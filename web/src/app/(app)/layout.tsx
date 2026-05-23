@@ -5,6 +5,8 @@ import { loadSpine } from "@/lib/spine";
 import { AppShell } from "@/components/app-shell";
 import { env } from "@/lib/env";
 import { envIsConfigured } from "@/lib/env";
+import { OutboxDrainer } from "@/components/offline/outbox-drainer";
+import { OfflineStatus } from "@/components/offline/offline-status";
 
 export default async function AuthedLayout({
   children,
@@ -42,13 +44,19 @@ export default async function AuthedLayout({
   const isAdmin = admins.includes((user.email || "").toLowerCase());
 
   return (
-    <AppShell
-      spine={spine}
-      projectTitle={project.title}
-      userEmail={user.email || ""}
-      isAdmin={isAdmin}
-    >
-      {children}
-    </AppShell>
+    <>
+      <AppShell
+        spine={spine}
+        projectTitle={project.title}
+        userEmail={user.email || ""}
+        isAdmin={isAdmin}
+      >
+        {children}
+      </AppShell>
+      <OutboxDrainer />
+      <div className="pointer-events-none fixed bottom-3 right-3 z-50">
+        <OfflineStatus className="pointer-events-auto shadow-sm" />
+      </div>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, Loader2, ChevronLeft, Maximize2, Minimize2, RotateCcw, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Chip } from "@/components/ui/chip";
 import type { ContinuityDial } from "@/lib/ai/continuity/dial";
+import { paragraphsFromPlainText } from "@/lib/ai/continuity/paragraph-range";
+import { extractContinuityWholeSceneAction } from "@/app/(app)/scenes/[id]/continuity/actions";
 import { ProseEditor, type ProseEditorHandle } from "@/components/prose-editor";
 import { TeamPanel } from "@/components/team-panel";
 import {
@@ -30,6 +32,11 @@ import { SceneBlueprintSection } from "./scene-blueprint";
 import { parseSceneBlueprint } from "@/lib/scene-blueprint";
 import { cn, formatNumber } from "@/lib/utils";
 import { prosePlainFingerprint, stripHtml } from "@/lib/html";
+import {
+  cacheSceneSnapshot,
+  clearOutboxUpTo,
+  enqueueSceneSave,
+} from "@/lib/offline/repo";
 import { idsMatchingMentionsInText } from "@/lib/mentions/character-mention-backfill";
 import {
   type WritingProfileId,
@@ -47,6 +54,15 @@ import type {
 } from "@/lib/supabase/types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+const WHOLE_SCENE_EXTRACT_PARAGRAPH_WARN = 20;
+
+function countProseParagraphs(html: string): number {
+  const plain = stripHtml(html)
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
+  return paragraphsFromPlainText(plain).filter((p) => p.trim()).length;
+}
 
 function scenePlanningIncomplete(goal: string, conflict: string, outcome: string) {
   return !(goal.trim() && conflict.trim() && outcome.trim());
@@ -99,7 +115,55 @@ export function SceneFocusClient({
   const [contentHtml, setContentHtml] = useState(scene.content ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [continuityRefreshKey, setContinuityRefreshKey] = useState(0);
+  const [wholeSceneExtractPending, startWholeSceneExtract] = useTransition();
+  const [continuityExtractMsg, setContinuityExtractMsg] = useState<string | null>(null);
   const [beatIds, setBeatIds] = useState<string[]>(scene.beat_ids ?? []);
+  const sceneParagraphCount = useMemo(
+    () => countProseParagraphs(contentHtml),
+    [contentHtml],
+  );
+
+  const bumpContinuityGutter = useCallback(() => {
+    setContinuityRefreshKey((k) => k + 1);
+  }, []);
+
+  function runWholeSceneContinuityExtract() {
+    if (wholeSceneExtractPending) return;
+    if (sceneParagraphCount === 0) {
+      setContinuityExtractMsg("Add prose before extracting continuity.");
+      return;
+    }
+    if (
+      sceneParagraphCount > WHOLE_SCENE_EXTRACT_PARAGRAPH_WARN &&
+      !window.confirm(
+        `This scene has ${sceneParagraphCount} paragraphs. Extract continuity for the whole scene? (Uses one AI call.)`,
+      )
+    ) {
+      return;
+    }
+    setContinuityExtractMsg(null);
+    startWholeSceneExtract(async () => {
+      const res = await extractContinuityWholeSceneAction(scene.id);
+      if (res.ok) {
+        const n = res.claimCount ?? 0;
+        setContinuityExtractMsg(
+          n === 1
+            ? "Extracted 1 claim from the whole scene."
+            : `Extracted ${n} claims from the whole scene.`,
+        );
+        bumpContinuityGutter();
+      } else {
+        setContinuityExtractMsg(res.error ?? "Continuity extraction failed.");
+      }
+    });
+  }
+
+  useEffect(() => {
+    if (!continuityExtractMsg) return;
+    const t = setTimeout(() => setContinuityExtractMsg(null), 8000);
+    return () => clearTimeout(t);
+  }, [continuityExtractMsg]);
+
   const [mentionQuery, setMentionQuery] = useState("");
   const [selectedRevisionId, setSelectedRevisionId] = useState(revisions[0]?.id ?? "");
   const [arcDrafts, setArcDrafts] = useState<Record<string, {
@@ -145,17 +209,61 @@ export function SceneFocusClient({
         setSaveState("saved");
         return;
       }
+      const clientTs = Date.now();
       setSaveState("saving");
+      // Optimistic local write — survives reload + offline.
+      try {
+        await cacheSceneSnapshot({
+          ...(scene as unknown as Record<string, unknown>),
+          id: scene.id,
+          content: html,
+          wordcount: words,
+        });
+      } catch {
+        // local cache failures are non-fatal; continue to server save.
+      }
+      const offline =
+        typeof navigator !== "undefined" && navigator.onLine === false;
+      if (offline) {
+        try {
+          await enqueueSceneSave({
+            sceneId: scene.id,
+            html,
+            wordcount: words,
+            fingerprint: fp,
+            clientTs,
+          });
+          lastPersistedFpRef.current = fp;
+          setSaveState("saved");
+        } catch {
+          setSaveState("error");
+        }
+        return;
+      }
       try {
         await saveSceneContent(scene.id, html, words);
+        await clearOutboxUpTo(scene.id, clientTs);
         lastPersistedFpRef.current = fp;
         setSaveState("saved");
         setContinuityRefreshKey((k) => k + 1);
       } catch {
-        setSaveState("error");
+        // Server save failed — likely network. Queue locally for resync.
+        try {
+          await enqueueSceneSave({
+            sceneId: scene.id,
+            html,
+            wordcount: words,
+            fingerprint: fp,
+            clientTs,
+          });
+          lastPersistedFpRef.current = fp;
+          setSaveState("saved");
+        } catch {
+          setSaveState("error");
+        }
       }
     },
-    [scene.id],
+    [scene],
   );
 
   useEffect(() => {
@@ -423,6 +531,31 @@ export function SceneFocusClient({
             initial={parseSceneBlueprint(scene.blueprint)}
           />
 
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={wholeSceneExtractPending || sceneParagraphCount === 0}
+              onClick={runWholeSceneContinuityExtract}
+            >
+              {wholeSceneExtractPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Extracting…
+                </>
+              ) : (
+                "Extract continuity (whole scene)"
+              )}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Or highlight a passage and use Extract continuity in the toolbar.
+            </span>
+          </div>
+          {continuityExtractMsg ? (
+            <p className="mb-2 text-sm text-muted-foreground">{continuityExtractMsg}</p>
+          ) : null}
+
           <ProseEditor
             ref={editorRef}
             sceneId={scene.id}
@@ -449,6 +582,7 @@ export function SceneFocusClient({
             }}
             continuityDial={continuityDial}
             continuityRefreshKey={continuityRefreshKey}
+            onContinuityExtracted={() => bumpContinuityGutter()}
             initialContent={scene.content ?? ""}
             placeholder="Start writing…"
             autofocus
