@@ -44,6 +44,11 @@ async function collapseOutbox(): Promise<OutboxItem[]> {
   return [...latestBySceneId.values()];
 }
 
+export async function outboxHasPendingItems(): Promise<boolean> {
+  const db = getDB();
+  return (await db.outbox.count()) > 0;
+}
+
 export async function drainOutbox(
   saveScene: SaveSceneFn,
 ): Promise<DrainResult> {

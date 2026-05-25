@@ -28,17 +28,15 @@ export default async function AuthedLayout({
 
   const supabase = await supabaseServer();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) redirect("/login");
 
   const project = await getOrCreateProject();
   if (!project) redirect("/login");
 
   const onboarded = await isOnboarded(project.id);
-  // Route guard is handled in the page, but we can also short-circuit:
-  // done in-page so /onboarding can still render.
-
   const spine = onboarded ? await loadSpine(project.id) : null;
   const admins = env.adminEmails();
   const isAdmin = admins.includes((user.email || "").toLowerCase());

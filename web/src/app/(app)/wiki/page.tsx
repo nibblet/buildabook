@@ -31,7 +31,7 @@ export default async function WikiPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Derived markdown summaries of every character, world element,
-            relationship and storyline index. Regenerated whenever you compile.
+            relationship and storyline index. Use Recompile after drafting to refresh.
           </p>
         </div>
         <CompileButton />

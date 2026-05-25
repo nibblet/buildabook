@@ -82,10 +82,6 @@ export async function compileProjectWiki(
     { data: relationships },
     { data: beats },
     { data: chapters },
-    { data: scenes },
-    { data: charMentions },
-    { data: elMentions },
-    { data: relBeats },
   ] = await Promise.all([
     supabase.from("characters").select("*").eq("project_id", projectId),
     supabase.from("world_elements").select("*").eq("project_id", projectId),
@@ -101,21 +97,37 @@ export async function compileProjectWiki(
       .select("id,title,order_index,status,wordcount,synopsis")
       .eq("project_id", projectId)
       .order("order_index"),
-    supabase
-      .from("scenes")
-      .select("id,chapter_id,order_index,title,goal,conflict,outcome,status")
-      .order("order_index"),
-    supabase.from("character_mentions").select("*"),
-    supabase.from("element_mentions").select("*"),
-    supabase.from("relationship_beats").select("*"),
   ]);
+
+  const chapterRows = (chapters ?? []) as ChapterRow[];
+  const chapterIds = chapterRows.map((c) => c.id);
+  const rels = (relationships ?? []) as Relationship[];
+  const relIds = rels.map((r) => r.id);
+
+  const [{ data: scenes }, { data: charMentions }, { data: elMentions }, { data: relBeats }] =
+    await Promise.all([
+      chapterIds.length
+        ? supabase
+            .from("scenes")
+            .select("id,chapter_id,order_index,title,goal,conflict,outcome,status")
+            .in("chapter_id", chapterIds)
+            .order("order_index")
+        : Promise.resolve({ data: [] as SceneRow[] }),
+      chapterIds.length
+        ? supabase.from("character_mentions").select("*").in("chapter_id", chapterIds)
+        : Promise.resolve({ data: [] as CharMentionRow[] }),
+      chapterIds.length
+        ? supabase.from("element_mentions").select("*").in("chapter_id", chapterIds)
+        : Promise.resolve({ data: [] as ElementMentionRow[] }),
+      relIds.length
+        ? supabase.from("relationship_beats").select("*").in("relationship_id", relIds)
+        : Promise.resolve({ data: [] as RelationshipBeatRow[] }),
+    ]);
 
   const chars = (characters ?? []) as Character[];
   const worldEls = (worldRows ?? []) as WorldElement[];
   const threadRows = (threads ?? []) as OpenThread[];
-  const rels = (relationships ?? []) as Relationship[];
   const beatRows = (beats ?? []) as Beat[];
-  const chapterRows = (chapters ?? []) as ChapterRow[];
   const sceneRows = (scenes ?? []) as SceneRow[];
   const charMentionRows = (charMentions ?? []) as CharMentionRow[];
   const elMentionRows = (elMentions ?? []) as ElementMentionRow[];

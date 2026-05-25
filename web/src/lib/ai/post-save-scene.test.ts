@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
-import { createPostSaveScenePipeline } from "./post-save-scene";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  createPostSaveScenePipeline,
+  POST_SAVE_DEBOUNCE_MS,
+} from "./post-save-scene";
 
 describe("createPostSaveScenePipeline", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("runs imported scenes sequentially through the awaitable pipeline", async () => {
     const events: string[] = [];
     const pipeline = createPostSaveScenePipeline({
@@ -42,7 +49,8 @@ describe("createPostSaveScenePipeline", () => {
     ]);
   });
 
-  it("keeps the editor fire path non-blocking", async () => {
+  it("debounces mention recount on autosave without compiling wiki", async () => {
+    vi.useFakeTimers();
     const events: string[] = [];
     let releaseLoad: (() => void) | null = null;
     const pipeline = createPostSaveScenePipeline({
@@ -75,11 +83,22 @@ describe("createPostSaveScenePipeline", () => {
 
     expect(pipeline.firePostSaveScenePipeline("s1")).toBeUndefined();
     await Promise.resolve();
+    expect(events).toEqual([]);
+
+    vi.advanceTimersByTime(POST_SAVE_DEBOUNCE_MS - 1);
+    await Promise.resolve();
+    expect(events).toEqual([]);
+
+    vi.advanceTimersByTime(1);
+    await Promise.resolve();
     expect(events).toEqual(["load:start"]);
 
     if (releaseLoad) releaseLoad();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(events).toContain("compile");
+    await Promise.resolve();
+    await vi.runAllTimersAsync();
+    expect(events).toContain("characters");
+    expect(events).not.toContain("compile");
+    vi.useRealTimers();
   });
 
   it("propagates failures when import callers await the pipeline", async () => {

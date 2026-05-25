@@ -63,8 +63,6 @@ export async function saveSceneContent(
       .eq("id", scene.chapter_id);
   }
 
-  revalidatePath(`/scenes/${sceneId}`);
-
   const proseChanged =
     prosePlainFingerprint(previousContent) !== prosePlainFingerprint(nextContent);
   if (proseChanged) {

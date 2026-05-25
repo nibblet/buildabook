@@ -290,7 +290,7 @@ export function SceneFocusClient({
     const t = setTimeout(() => {
       dirtyRef.current = false;
       startTransition(() => persist(contentHtml, wordcount));
-    }, 900);
+    }, 2500);
     return () => clearTimeout(t);
   }, [contentHtml, wordcount, persist]);
 

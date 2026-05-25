@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { saveSceneContent } from "@/app/(app)/scenes/actions";
-import { drainOutbox } from "@/lib/offline/outbox";
+import { drainOutbox, outboxHasPendingItems } from "@/lib/offline/outbox";
 
-const HEARTBEAT_MS = 30_000;
+/** Only poll when offline saves are queued; avoids idle server-action churn. */
+const HEARTBEAT_MS = 120_000;
 
 export function OutboxDrainer() {
   const runningRef = useRef(false);
@@ -15,6 +16,7 @@ export function OutboxDrainer() {
     async function tick() {
       if (stopped || runningRef.current) return;
       if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      if (!(await outboxHasPendingItems())) return;
       runningRef.current = true;
       try {
         await drainOutbox(saveSceneContent);
@@ -29,7 +31,11 @@ export function OutboxDrainer() {
     const onOnline = () => {
       void tick();
     };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
     window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
 
     void tick();
 
@@ -37,6 +43,7 @@ export function OutboxDrainer() {
       stopped = true;
       clearInterval(interval);
       window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

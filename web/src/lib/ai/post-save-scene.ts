@@ -7,6 +7,9 @@ import { extractWikiLinkNodes } from "@/lib/mentions/wiki-link-mentions";
 import { compileProjectWiki } from "@/lib/wiki/compile";
 import { supabaseServer } from "@/lib/supabase/server";
 
+/** Coalesce autosave follow-up work to cut Fluid CPU during active writing. */
+export const POST_SAVE_DEBOUNCE_MS = 60_000;
+
 type WikiLinkNode = ReturnType<typeof extractWikiLinkNodes>[number];
 
 export type PostSaveScenePipelineDeps = {
@@ -28,7 +31,12 @@ export type PostSaveScenePipelineDeps = {
 };
 
 export function createPostSaveScenePipeline(deps: PostSaveScenePipelineDeps) {
-  async function runPostSaveScenePipeline(sceneId: string): Promise<void> {
+  const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  async function runPostSaveScenePipeline(
+    sceneId: string,
+    opts?: { compileWiki?: boolean },
+  ): Promise<void> {
     const scene = await deps.loadScene(sceneId);
     const chapterId = scene?.chapterId;
     if (!chapterId) return;
@@ -42,17 +50,27 @@ export function createPostSaveScenePipeline(deps: PostSaveScenePipelineDeps) {
       if (nodes.length > 0) {
         await deps.logWikiLinks({ projectId, sceneId, chapterId, nodes });
       }
-      await deps.compileWiki(projectId);
+      if (opts?.compileWiki) {
+        await deps.compileWiki(projectId);
+      }
     }
   }
 
   function firePostSaveScenePipeline(sceneId: string): void {
-    void runPostSaveScenePipeline(sceneId).catch(deps.onError);
+    const existing = debounceTimers.get(sceneId);
+    if (existing) clearTimeout(existing);
+    debounceTimers.set(
+      sceneId,
+      setTimeout(() => {
+        debounceTimers.delete(sceneId);
+        void runPostSaveScenePipeline(sceneId).catch(deps.onError);
+      }, POST_SAVE_DEBOUNCE_MS),
+    );
   }
 
   async function runPostImportScenePipeline(sceneIds: string[]): Promise<void> {
     for (const sceneId of sceneIds) {
-      await runPostSaveScenePipeline(sceneId);
+      await runPostSaveScenePipeline(sceneId, { compileWiki: true });
     }
   }
 
@@ -109,6 +127,6 @@ export const runPostSaveScenePipeline =
 export const runPostImportScenePipeline =
   defaultPipeline.runPostImportScenePipeline;
 
-/** Non-blocking hooks after prose save (mentions + wiki compile; no LLM). */
+/** Non-blocking hooks after prose autosave (mention recount only; wiki compile is manual). */
 export const firePostSaveScenePipeline =
   defaultPipeline.firePostSaveScenePipeline;

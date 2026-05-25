@@ -8,6 +8,12 @@ import { createServerClient } from "@supabase/ssr";
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Server Actions authenticate via supabaseServer(); skipping proxy avoids
+  // doubling Fluid invocations on autosaves and form submits.
+  if (req.headers.has("Next-Action")) {
+    return NextResponse.next();
+  }
+
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -91,8 +97,7 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip proxy for Next internals, favicon, and typical static assets (icons, images).
-    // Otherwise unauthenticated requests get redirected and `/icon.svg` etc. break.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)",
+    // Skip proxy for Next internals, static assets, and common public files.
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest|woff2?|css|js|txt|map)$).*)",
   ],
 };
