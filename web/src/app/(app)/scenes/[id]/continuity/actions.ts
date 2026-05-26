@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { extractContinuityRange } from "@/lib/ai/continuity/extract";
 import { confirmClaims } from "@/lib/ai/continuity/promote";
 import { validateParagraphRange } from "@/lib/ai/continuity/paragraph-range";
-import { splitDraftIntoParagraphs } from "@/lib/ai/extract";
+import { splitDraftIntoParagraphs } from "@/lib/prose/split-paragraphs";
 import { env } from "@/lib/env";
 import { getOrCreateProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";

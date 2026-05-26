@@ -1,4 +1,4 @@
-import { splitDraftIntoParagraphs } from "@/lib/ai/extract";
+import { splitDraftIntoParagraphs } from "@/lib/prose/split-paragraphs";
 
 /** Split plain prose into numbered paragraphs (same logic as continuity extract). */
 export function paragraphsFromPlainText(plain: string): string[] {

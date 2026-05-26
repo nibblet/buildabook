@@ -10,6 +10,9 @@ import {
   promptRoleAlternatives,
   promptSpeciesAlternatives,
 } from "@/lib/characters/presets";
+import { splitDraftIntoParagraphs } from "@/lib/prose/split-paragraphs";
+
+export { splitDraftIntoParagraphs };
 
 // Schema for one-shot draft extraction (import-first onboarding, v2 §12).
 export const ExtractedCharacter = z.object({
@@ -108,13 +111,6 @@ const BEAT_TYPES = [
   "climax",
   "hea",
 ];
-
-/** Split draft on blank lines — keeps dialogue line breaks inside a paragraph together. */
-export function splitDraftIntoParagraphs(draftText: string): string[] {
-  const normalized = draftText.replace(/\r\n/g, "\n");
-  const parts = normalized.split(/\n\s*\n+/);
-  return parts.map((p) => p.trim()).filter((p) => p.length > 0);
-}
 
 function buildNumberedDraftBody(paragraphs: string[]): string {
   return paragraphs

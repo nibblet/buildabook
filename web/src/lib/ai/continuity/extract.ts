@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { env } from "@/lib/env";
-import { splitDraftIntoParagraphs } from "@/lib/ai/extract";
+import { splitDraftIntoParagraphs } from "@/lib/prose/split-paragraphs";
 import {
   askModel,
   resolveModelFromProject,
