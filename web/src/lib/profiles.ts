@@ -5,9 +5,13 @@ export type Profile = {
   full_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  last_workspace_id: string | null;
   created_at: string;
   updated_at: string;
 };
+
+const PROFILE_COLUMNS =
+  "id, full_name, bio, avatar_url, last_workspace_id, created_at, updated_at";
 
 export async function getOrCreateProfile(): Promise<{
   profile: Profile;
@@ -21,7 +25,7 @@ export async function getOrCreateProfile(): Promise<{
 
   const { data: existing } = await supabase
     .from("profiles")
-    .select("id, full_name, bio, avatar_url, created_at, updated_at")
+    .select(PROFILE_COLUMNS)
     .eq("id", user.id)
     .maybeSingle();
   if (existing)
@@ -30,10 +34,22 @@ export async function getOrCreateProfile(): Promise<{
   const { data: created, error } = await supabase
     .from("profiles")
     .insert({ id: user.id })
-    .select("id, full_name, bio, avatar_url, created_at, updated_at")
+    .select(PROFILE_COLUMNS)
     .single();
   if (error) throw error;
   return { profile: created as Profile, email: user.email ?? null };
+}
+
+export async function updateLastWorkspaceId(
+  userId: string,
+  projectId: string,
+): Promise<void> {
+  const supabase = await supabaseServer();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ last_workspace_id: projectId })
+    .eq("id", userId);
+  if (error) throw error;
 }
 
 export async function getEarnedBadgeIds(userId: string): Promise<Set<string>> {

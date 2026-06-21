@@ -6,7 +6,7 @@ import { findExistingCharacterIdForLabel } from "@/lib/ai/continuity/resolve-sub
 import { findRelationshipForPair } from "@/lib/ai/continuity/resolve-relationship";
 import { confirmClaims } from "@/lib/ai/continuity/promote";
 import { env } from "@/lib/env";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export async function listCodexClaimsForChapter(chapterId: string) {
@@ -319,7 +319,7 @@ export async function ensureRelationshipAndMergeClaimsAction(input: {
     if (!a || !b) return { ok: false, error: "Choose both characters." };
     if (a === b) return { ok: false, error: "Pick two different characters." };
 
-    const project = await getOrCreateProject();
+    const project = await getActiveProject();
     if (!project) return { ok: false, error: "No project." };
 
     const supabase = await supabaseServer();
@@ -606,7 +606,7 @@ export async function rerunChapterContinuityExtractionAction(chapterId: string):
           "Continuity extraction is disabled (CONTINUITY_EDITOR_ENABLED=false).",
       };
     }
-    const project = await getOrCreateProject();
+    const project = await getActiveProject();
     if (!project) return { ok: false, error: "No project." };
 
     const supabase = await supabaseServer();

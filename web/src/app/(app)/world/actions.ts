@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 
 export async function createWorldElementDraft() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
   const { data, error } = await supabase

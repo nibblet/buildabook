@@ -9,7 +9,7 @@ import {
   aiProviderForWritingProfile,
   parseWritingProfile,
 } from "@/lib/deployment/writing-profile";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { getOrGenerateReflection } from "@/lib/ai/reflections";
 import { loadSpine } from "@/lib/spine";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -70,7 +70,7 @@ export async function runChapterFlowWindow(
     neighborSceneCount?: number;
   },
 ): Promise<{ ok: boolean; result?: ChapterFlowWindow; error?: string }> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return { ok: false, error: "No project." };
 
   const wp = parseWritingProfile(project.writing_profile);

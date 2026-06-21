@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { loadSpine } from "@/lib/spine";
 import { StructureTabs } from "@/components/structure-tabs";
 import { NewChapterButton } from "@/components/new-chapter-button";
@@ -8,7 +8,7 @@ import type { Character } from "@/lib/supabase/types";
 import { Corkboard } from "./corkboard";
 
 export default async function PlanPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const supabase = await supabaseServer();

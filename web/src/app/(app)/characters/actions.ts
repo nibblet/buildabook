@@ -8,7 +8,7 @@ import {
   recountChapterElementMentions,
 } from "@/lib/mentions/chapter-mentions";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { countWords } from "@/lib/utils";
 import {
   applyMentionBackfill,
@@ -16,7 +16,7 @@ import {
 } from "@/lib/mentions/character-mention-backfill";
 
 export async function createCharacterDraft() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
   const { data, error } = await supabase
@@ -50,7 +50,7 @@ export async function updateCharacter(
   },
   options?: { replaceNameInProse?: boolean },
 ): Promise<{ proseScenesUpdated: number; proseReplacements: number }> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
 
   const supabase = await supabaseServer();
@@ -155,7 +155,7 @@ export async function deleteCharacter(characterId: string) {
 }
 
 export async function backfillCharacterMentions() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 

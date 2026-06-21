@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { backfillCharacterMentions, createCharacterDraft } from "./actions";
 import type { Character } from "@/lib/supabase/types";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@/lib/characters/presets";
 
 export default async function CharactersPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const supabase = await supabaseServer();

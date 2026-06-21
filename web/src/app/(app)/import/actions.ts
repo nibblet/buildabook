@@ -11,7 +11,7 @@ import {
   type ImportCommitPayload,
   type ImportReview,
 } from "@/lib/import/import-model";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Beat, Chapter, Character, WorldElement } from "@/lib/supabase/types";
 
@@ -41,7 +41,7 @@ export async function runImportExtraction(
       };
     }
 
-    const project = await getOrCreateProject();
+    const project = await getActiveProject();
     if (!project) return { ok: false, error: "No active project." };
     const supabase = await supabaseServer();
     const [
@@ -117,7 +117,7 @@ export async function commitImport(
   rawPayload: ImportCommitPayload,
 ): Promise<CommitImportResult> {
   const payload = ImportCommitPayloadSchema.parse(rawPayload);
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No active project.");
   const supabase = await supabaseServer();
   const cleanup = {

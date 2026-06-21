@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import type { AiLogEntry } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function ActivityPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const supabase = await supabaseServer();

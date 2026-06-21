@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { createRelationship } from "../actions";
 import type { Character } from "@/lib/supabase/types";
 
 const REL_TYPES = ["", "romantic", "rival", "ally", "family", "other"];
 
 export default async function NewRelationshipPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const supabase = await supabaseServer();

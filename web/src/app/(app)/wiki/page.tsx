@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listCurrentDocs } from "@/lib/wiki/repo";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import type { WikiDocument } from "@/lib/supabase/types";
 import { CompileButton } from "./compile-button";
 
 export const dynamic = "force-dynamic";
 
 export default async function WikiPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const docs = await listCurrentDocs(project.id);

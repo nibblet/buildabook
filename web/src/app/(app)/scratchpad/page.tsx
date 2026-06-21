@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { ScratchpadClient } from "./scratchpad-client";
 import { getOrCreateScratchpad } from "./actions";
 import type { Proposal } from "@/lib/ai/extract-notes";
 
 export default async function ScratchpadPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const row = await getOrCreateScratchpad();

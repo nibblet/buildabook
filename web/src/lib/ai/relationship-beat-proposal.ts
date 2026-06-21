@@ -5,7 +5,7 @@ import {
 } from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { stripHtml } from "@/lib/html";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -16,7 +16,7 @@ export async function maybeProposeRelationshipBeat(
   sceneId: string,
 ): Promise<void> {
   const supabase = await supabaseServer();
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return;
 
   const wp = parseWritingProfile(project.writing_profile);

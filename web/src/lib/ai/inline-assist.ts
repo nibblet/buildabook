@@ -10,7 +10,7 @@ import { buildContext } from "@/lib/ai/context";
 import { fetchContinuityFactsForScene } from "@/lib/ai/continuity/context-block";
 import { env } from "@/lib/env";
 import { listCurrentDocs } from "@/lib/wiki/repo";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 import type {
   Beat,
@@ -65,7 +65,7 @@ export async function runInlineAssist(input: {
     return { ok: false, error: "No text selected." };
 
   try {
-    const project = await getOrCreateProject();
+    const project = await getActiveProject();
     if (!project) return { ok: false, error: "No project." };
 
     const supabase = await supabaseServer();

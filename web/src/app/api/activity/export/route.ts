@@ -1,9 +1,9 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import type { AiLogEntry } from "@/lib/supabase/types";
 
 export async function GET() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return new Response("Unauthorized", { status: 401 });
 
   const supabase = await supabaseServer();

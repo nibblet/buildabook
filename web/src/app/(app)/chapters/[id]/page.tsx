@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AddSceneButton } from "./add-scene-button";
@@ -26,7 +26,7 @@ export default async function ChapterPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const supabase = await supabaseServer();

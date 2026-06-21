@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { getOrCreateProfile } from "@/lib/profiles";
 
 type Input = {
@@ -15,7 +15,7 @@ type Input = {
 };
 
 export async function saveProjectSettings(input: Input) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -54,7 +54,7 @@ export async function createStyleSample(input: {
   label: string;
   content: string;
 }) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
   const { error } = await supabase.from("style_samples").insert({
@@ -71,7 +71,7 @@ export async function updateStyleSample(
   sampleId: string,
   input: { label: string; content: string },
 ) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
   const { data: sample } = await supabase
@@ -94,7 +94,7 @@ export async function updateStyleSample(
 }
 
 export async function deleteStyleSample(sampleId: string) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
   const { error } = await supabase

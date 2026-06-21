@@ -1,6 +1,6 @@
 "use server";
 
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import {
   searchMentionCandidates,
   type MentionCandidate,
@@ -9,7 +9,7 @@ import {
 export async function mentionSearchAction(
   query: string,
 ): Promise<MentionCandidate[]> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return [];
   return searchMentionCandidates(project.id, query, 8);
 }

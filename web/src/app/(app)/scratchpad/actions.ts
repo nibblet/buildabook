@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import {
   proposeFromNotes,
   type Proposal,
@@ -37,7 +37,7 @@ export type ScratchpadRow = {
 };
 
 export async function getOrCreateScratchpad(): Promise<ScratchpadRow> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -61,7 +61,7 @@ export async function getOrCreateScratchpad(): Promise<ScratchpadRow> {
 }
 
 export async function saveScratchpad(content: string): Promise<void> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -76,7 +76,7 @@ export async function saveScratchpad(content: string): Promise<void> {
 }
 
 export async function proposeFromScratchpad(): Promise<Proposal> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -151,7 +151,7 @@ export async function promoteProposal(
   proposal: Proposal,
   selection: PromoteSelection,
 ): Promise<PromoteResult> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const parsed = ProposalSchema.parse(proposal);
   const supabase = await supabaseServer();

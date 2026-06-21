@@ -9,7 +9,7 @@ import {
 } from "@/lib/ai/model";
 import { getPersonas } from "@/lib/ai/personas";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { getOrGenerateReflection } from "@/lib/ai/reflections";
 import { loadSpine, pickCurrentScene, type SpineData } from "@/lib/spine";
 import type { Scene } from "@/lib/supabase/types";
@@ -82,7 +82,7 @@ function fallbackSummary(spine: SpineData, scene: Scene | null): string {
 
 /** Profiler-generated recap + optional writer note; inserts a `sessions` row. */
 export async function wrapWritingSession(writerNoteRaw: string) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
 
   const writerNote = writerNoteRaw.trim() || null;

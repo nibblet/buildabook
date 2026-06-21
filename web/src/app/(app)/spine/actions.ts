@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { getPlotTemplate, type PlotTemplateId } from "@/lib/plot-templates";
 
 export async function reorderBeats(orderedBeatIds: string[]) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
   const { data: beats } = await supabase
@@ -38,7 +38,7 @@ export async function updateBeatFields(
     why_it_matters?: string | null;
   },
 ) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
   const { data: beat } = await supabase
@@ -64,7 +64,7 @@ export async function mergeBeatsInto(
   sourceBeatId: string,
   targetBeatId: string,
 ) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   if (sourceBeatId === targetBeatId) return;
 
@@ -128,7 +128,7 @@ export async function applyPlotTemplate(
   templateId: PlotTemplateId,
   mode: "append" | "replace",
 ): Promise<ApplyTemplateResult> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const template = getPlotTemplate(templateId);
   if (!template) throw new Error("Unknown template.");

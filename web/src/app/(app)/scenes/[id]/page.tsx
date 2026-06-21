@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { SceneFocusClient } from "./scene-focus-client";
 import { CacheHydrator } from "@/components/offline/cache-hydrator";
 import type {
@@ -22,7 +22,7 @@ export default async function SceneFocusPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const supabase = await supabaseServer();

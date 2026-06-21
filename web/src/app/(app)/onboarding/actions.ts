@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { extractDraft, type ExtractedDraftT } from "@/lib/ai/extract";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 import { countWords } from "@/lib/utils";
@@ -16,7 +16,7 @@ export async function runExtraction(draftText: string): Promise<{
   error?: string;
 }> {
   try {
-    const project = await getOrCreateProject();
+    const project = await getActiveProject();
     if (!project) return { ok: false, error: "No active project." };
     const data = await extractDraft(draftText, {
       projectId: project.id,
@@ -76,7 +76,7 @@ type ApprovedReview = {
 // Step 2: commit the approved review payload to the database.
 export async function commitOnboarding(payload: ApprovedReview) {
   const supabase = await supabaseServer();
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No active project.");
 
   // 1. Update project with premise/style/paranormal_type/etc.

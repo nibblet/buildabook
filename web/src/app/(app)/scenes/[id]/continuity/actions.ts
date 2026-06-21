@@ -6,7 +6,7 @@ import { confirmClaims } from "@/lib/ai/continuity/promote";
 import { validateParagraphRange } from "@/lib/ai/continuity/paragraph-range";
 import { splitDraftIntoParagraphs } from "@/lib/prose/split-paragraphs";
 import { env } from "@/lib/env";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { ContinuityAnnotation } from "@/lib/supabase/types";
 
@@ -25,7 +25,7 @@ async function assertSceneInProject(sceneId: string): Promise<
   | { ok: true; content: string }
   | { ok: false; error: string }
 > {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return { ok: false, error: "No active project." };
 
   const supabase = await supabaseServer();

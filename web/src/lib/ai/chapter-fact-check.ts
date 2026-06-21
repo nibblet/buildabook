@@ -5,7 +5,7 @@ import {
 } from "@/lib/ai/model";
 import { aiProviderForWritingProfile, parseWritingProfile } from "@/lib/deployment/writing-profile";
 import type { FactCheckWarning } from "@/lib/supabase/types";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { stripHtml } from "@/lib/html";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Character, Scene, WorldElement } from "@/lib/supabase/types";
@@ -13,7 +13,7 @@ import type { Character, Scene, WorldElement } from "@/lib/supabase/types";
 export async function runChapterFactCheck(
   chapterId: string,
 ): Promise<{ ok: boolean; warnings?: FactCheckWarning[]; error?: string }> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return { ok: false, error: "No project." };
 
   const wp = parseWritingProfile(project.writing_profile);

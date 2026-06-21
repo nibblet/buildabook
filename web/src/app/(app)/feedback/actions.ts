@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 
 export type FeedbackActionState = { ok?: boolean; error?: string };
 
@@ -28,7 +28,7 @@ export async function submitFeedback(
 
   let projectId: string | null = null;
   try {
-    const project = await getOrCreateProject();
+    const project = await getActiveProject();
     projectId = project?.id ?? null;
   } catch {
     /* feedback still valuable without project row */

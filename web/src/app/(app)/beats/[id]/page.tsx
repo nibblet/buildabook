@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { StartChapterForBeat } from "./start-chapter-for-beat";
 import type { Beat, Chapter } from "@/lib/supabase/types";
 
@@ -15,7 +15,7 @@ export default async function BeatPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
   const supabase = await supabaseServer();
   const { data: beat } = await supabase

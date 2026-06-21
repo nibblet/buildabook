@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { firePostSaveScenePipeline } from "@/lib/ai/post-save-scene";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { prosePlainFingerprint } from "@/lib/html";
 import { countWords } from "@/lib/utils";
 import {
@@ -71,7 +71,7 @@ export async function saveSceneContent(
 }
 
 export async function moveSceneToChapter(sceneId: string, targetChapterId: string) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -136,7 +136,7 @@ export async function moveSceneToChapter(sceneId: string, targetChapterId: strin
 }
 
 export async function deleteScene(sceneId: string) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -316,7 +316,7 @@ export async function reorderScenes(
   chapterId: string,
   orderedSceneIds: string[],
 ) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -400,7 +400,7 @@ export async function renameEntityFromScene(
 ) {
   const trimmed = newName.trim();
   if (!trimmed) throw new Error("New name is empty.");
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -436,7 +436,7 @@ export async function saveSceneBlueprint(
   sceneId: string,
   patch: Partial<SceneBlueprint>,
 ): Promise<SceneBlueprint> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 

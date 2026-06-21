@@ -10,7 +10,7 @@ import {
   aiProviderForWritingProfile,
   parseWritingProfile,
 } from "@/lib/deployment/writing-profile";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { stripHtml } from "@/lib/html";
 import { getOrGenerateReflection } from "@/lib/ai/reflections";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -28,7 +28,7 @@ export type ChapterDebrief = z.infer<typeof ChapterDebriefSchema>;
 export async function runChapterDebrief(
   chapterId: string,
 ): Promise<{ ok: boolean; debrief?: ChapterDebrief; error?: string }> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return { ok: false, error: "No project." };
 
   const wp = parseWritingProfile(project.writing_profile);

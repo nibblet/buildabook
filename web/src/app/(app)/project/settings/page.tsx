@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 import { evaluateBadges } from "@/lib/badges";
 import {
@@ -14,7 +14,7 @@ import { SettingsTabs } from "./settings-tabs";
 import type { StyleSample } from "@/lib/supabase/types";
 
 export default async function ProjectSettingsPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const profileResult = await getOrCreateProfile();

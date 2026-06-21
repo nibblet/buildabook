@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { SpineBeatList } from "./spine-beat-list";
 import { MergeBeatsForm } from "./merge-beats-form";
 import { PlotTemplatePicker } from "./plot-template-picker";
@@ -8,7 +8,7 @@ import { StructureTabs } from "@/components/structure-tabs";
 import type { Beat } from "@/lib/supabase/types";
 
 export default async function SpinePage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const supabase = await supabaseServer();

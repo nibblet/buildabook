@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProgressRing } from "@/components/progress-ring";
-import { getOrCreateProject, isOnboarded } from "@/lib/projects";
+import { getActiveProject, isOnboarded, listProjectsForUser } from "@/lib/projects";
+import { writingProfileFromEnv, newProjectDefaults } from "@/lib/deployment/writing-profile";
 import {
   currentBeatFor,
   currentChapterFor,
@@ -20,6 +21,7 @@ import { ChemistryStrip } from "@/components/chemistry-strip";
 import { WarmupPromptCard } from "@/components/warmup-prompt";
 import { loadPrimaryRelationshipChemistry } from "@/lib/dashboard/chemistry";
 import { buildNextActions } from "@/lib/dashboard/next-actions";
+import { BookSwitcher } from "@/components/book-switcher";
 import { SessionContinuitySection } from "./session-continuity";
 import type { OpenThread, WritingSession } from "@/lib/supabase/types";
 
@@ -64,15 +66,18 @@ export default async function DashboardPage() {
   if (!envIsConfigured()) {
     return null; // AuthedLayout renders the setup screen
   }
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const onboarded = await isOnboarded(project.id);
   if (!onboarded) redirect("/onboarding");
 
   const supabase = await supabaseServer();
+  const writingProfile = writingProfileFromEnv();
+  const defaultTitle = newProjectDefaults(writingProfile).title;
 
   const [
+    projects,
     spine,
     sessionsRes,
     threadsRes,
@@ -80,6 +85,7 @@ export default async function DashboardPage() {
     relCountRes,
     chem,
   ] = await Promise.all([
+    listProjectsForUser(),
     loadSpine(project.id),
     supabase
       .from("sessions")
@@ -178,6 +184,11 @@ export default async function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <BookSwitcher
+              projects={projects}
+              activeProjectId={project.id}
+              defaultTitle={defaultTitle}
+            />
             {currentBeat && (
               <div>
                 <p className="label-eyebrow mb-1">

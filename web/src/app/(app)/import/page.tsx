@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { ImportClient } from "./import-client";
 
 export default async function ImportPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   return (

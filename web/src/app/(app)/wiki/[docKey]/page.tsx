@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { getCurrentDoc } from "@/lib/wiki/repo";
 import { extractWikiLinks } from "@/lib/wiki/links";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { WikiDocType } from "@/lib/supabase/types";
 
@@ -23,7 +23,7 @@ export default async function WikiDocPage({
   params: Promise<{ docKey: string }>;
   searchParams: Promise<{ type?: string }>;
 }) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const { docKey } = await params;

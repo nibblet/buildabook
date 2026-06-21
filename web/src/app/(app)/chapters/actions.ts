@@ -6,7 +6,7 @@ import { z } from "zod";
 import { runChapterFactCheck } from "@/lib/ai/chapter-fact-check";
 import { runChapterDebrief } from "@/lib/ai/chapter-debrief";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { askModel, resolveModelFromProject } from "@/lib/ai/model";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
 
@@ -20,7 +20,7 @@ export async function updateChapterFields(
     beat_ids?: string[];
   },
 ) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -64,7 +64,7 @@ export async function updateChapterFields(
 }
 
 export async function deleteChapter(chapterId: string) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const supabase = await supabaseServer();
 
@@ -110,7 +110,7 @@ export async function bulkAddScenesToChapter(
   titles: string[],
   opts: { aiExpand: boolean },
 ): Promise<BulkAddResult> {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) throw new Error("No project.");
   const clean = titles
     .map((t) => t.replace(/^[\s\-\*•–]+/, "").trim())

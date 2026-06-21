@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getOrCreateProject, isOnboarded } from "@/lib/projects";
+import { getActiveProject, isOnboarded } from "@/lib/projects";
 import { loadManuscriptExportData } from "@/lib/export/manuscript-payload";
 import {
   ManuscriptReaderClient,
@@ -11,7 +11,7 @@ export default async function ManuscriptPage({
 }: {
   searchParams: Promise<{ chapter?: string }>;
 }) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const onboarded = await isOnboarded(project.id);

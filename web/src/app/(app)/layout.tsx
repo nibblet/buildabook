@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getOrCreateProject, isOnboarded } from "@/lib/projects";
+import { getActiveProject, isOnboarded } from "@/lib/projects";
 import { loadSpine } from "@/lib/spine";
 import { AppShell } from "@/components/app-shell";
 import { env } from "@/lib/env";
@@ -33,7 +33,7 @@ export default async function AuthedLayout({
   const user = session?.user;
   if (!user) redirect("/login");
 
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
 
   const onboarded = await isOnboarded(project.id);

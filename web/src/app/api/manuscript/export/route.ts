@@ -1,11 +1,11 @@
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import { buildManuscriptDocxBuffer } from "@/lib/export/build-manuscript-docx";
 import { chapterHeadingLabel } from "@/lib/manuscript-labels";
 import { loadManuscriptExportData } from "@/lib/export/manuscript-payload";
 import { slugifyForFilename } from "@/lib/export/filename";
 
 export async function GET(req: Request) {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) return new Response("Unauthorized", { status: 401 });
 
   const url = new URL(req.url);

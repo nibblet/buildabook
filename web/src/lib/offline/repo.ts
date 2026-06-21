@@ -82,3 +82,17 @@ export async function getMeta<T>(key: string): Promise<T | undefined> {
   const row = await db.meta.get(key);
   return row?.value as T | undefined;
 }
+
+/** Drop cached story data when switching active books. Outbox is preserved. */
+export async function clearProjectCache(): Promise<void> {
+  const db = getDB();
+  await db.transaction(
+    "rw",
+    ALL_TABLES.map((t) => db.table(t)),
+    async () => {
+      for (const t of ALL_TABLES) {
+        await db.table(t).clear();
+      }
+    },
+  );
+}

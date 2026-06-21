@@ -12,7 +12,7 @@ import { buildPartnerDraftContext } from "@/lib/ai/draft-context";
 import { fetchContinuityFactsForScene } from "@/lib/ai/continuity/context-block";
 import { listCurrentDocs } from "@/lib/wiki/repo";
 import { env } from "@/lib/env";
-import { getOrCreateProject } from "@/lib/projects";
+import { getActiveProject } from "@/lib/projects";
 import type {
   Beat,
   Character,
@@ -37,7 +37,7 @@ export async function askPersona(input: AskInput): Promise<{
   error?: string;
 }> {
   try {
-    const project = await getOrCreateProject();
+    const project = await getActiveProject();
     if (!project) return { ok: false, error: "No project." };
 
     const personas = getPersonas(parseWritingProfile(project.writing_profile));

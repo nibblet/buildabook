@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { parseWritingProfile } from "@/lib/deployment/writing-profile";
-import { getOrCreateProject, isOnboarded } from "@/lib/projects";
+import { getActiveProject, isOnboarded } from "@/lib/projects";
 import { tropeOptionsForWritingProfile } from "@/lib/seed/beats";
 import { OnboardingClient } from "./onboarding-client";
 
 export default async function OnboardingPage() {
-  const project = await getOrCreateProject();
+  const project = await getActiveProject();
   if (!project) redirect("/login");
   const onboarded = await isOnboarded(project.id);
   if (onboarded) redirect("/");
